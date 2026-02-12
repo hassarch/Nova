@@ -3,6 +3,8 @@ venv/
 env/
 ENV/
 .venv
+venv.bak/
+env.bak/
 
 # Python
 __pycache__/
@@ -28,11 +30,13 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+*.whl
 
 # Environment variables
 .env
 .env.local
 .env.*.local
+.env.prod
 
 # IDE
 .vscode/
@@ -43,29 +47,73 @@ MANIFEST
 .DS_Store
 *.sublime-project
 *.sublime-workspace
+.project
+.pydevproject
+.settings/
+*.iml
 
 # Testing
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .tox/
 .hypothesis/
+.nox/
+coverage.xml
+*.cover
 
 # Database
 *.db
 *.sqlite
 *.sqlite3
 migrations/versions/
+*.sql
 
 # Logs
 *.log
 logs/
+*.log.*
 
 # OS
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
 
 # Project specific
 .cache/
 temp/
 tmp/
+*.tmp
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Build artifacts
+*.tar.gz
+*.zip
+
+# IDE cache
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+
+# Node (if using any frontend tools)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Misc
+.env.*.swp
+*.pem
+*.key
+*.crt
+
