@@ -6,6 +6,8 @@ ENV/
 venv.bak/
 env.bak/
 
+README.md
+
 # Python
 __pycache__/
 *.py[cod]
