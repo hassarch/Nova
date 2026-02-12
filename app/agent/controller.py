@@ -70,7 +70,12 @@ class AgentController:
             self.db.commit()
             self.db.refresh(db_step)
 
+            print("DEBUG STEP TOOL:", step["tool"])
+            print("DEBUG STEP COMMAND:", step["command"])
+
+
             result = self.dispatcher.dispatch(step)
+            print("DEBUG RESULT : ",result)
 
             if result:
                 db_result = ExecutionResult(
