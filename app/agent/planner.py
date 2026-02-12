@@ -37,14 +37,19 @@ Return strictly this format:
   "steps": [
     {{
       "step_id": "step_1",
-      "tool": "terminal",
-      "action": "description",
-      "command": "command_here",
-      "file_path": null,
-      "content": null
+      "tool": "filesystem",
+      "action": "Create a new file",
+      "command": null,
+      "file_path": "./filename.ext",
+      "content": "file content here"
     }}
   ]
 }}
+
+IMPORTANT:
+- Use relative paths starting with "./" for file_path (e.g., "./hello.py", "./src/main.java")
+- For terminal commands, use tool "terminal" with command field populated
+- For file creation, use tool "filesystem" with file_path and content fields populated
 
 User request:
 {user_prompt}
