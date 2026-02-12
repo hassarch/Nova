@@ -1,5 +1,6 @@
 import typer
 from rich import print
+from app.config.logging import logger
 from app.database.connection import SessionLocal
 from app.agent.controller import AgentController
 

@@ -7,8 +7,6 @@ class PlanParser:
 
     def validate(self, raw_response: str):
 
-        print("\nRAW LLM RESPONSE:\n", raw_response)
-
         try:
             parsed = json.loads(raw_response)
         except json.JSONDecodeError as e:

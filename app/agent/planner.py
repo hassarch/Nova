@@ -12,7 +12,6 @@ class Planner:
         }
 
         url = f"{settings.OLLAMA_URL}/api/generate"
-        print(f"Connecting to: {url}")
         
         response = requests.post(url, json=payload, timeout=300)
 
