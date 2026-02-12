@@ -10,6 +10,8 @@ from app.database.models import (
 from app.agent.planner import Planner
 from app.agent.parser import PlanParser
 from app.agent.dispatcher import ToolDispatcher
+from app.agent.retry_engine import RetryEngine
+
 
 
 class AgentController:
@@ -75,7 +77,7 @@ class AgentController:
 
 
             result = self.dispatcher.dispatch(step)
-            print("DEBUG RESULT : ",result)
+            print("DEBUG RESULT : ", result)
 
             if result:
                 db_result = ExecutionResult(
@@ -92,4 +94,9 @@ class AgentController:
                 print("STDERR:", result.stderr)
                 print("RETURN CODE:", result.return_code)
 
-        return structured_plan
+                if result.return_code != 0:
+                    self.retry_engine.handle_failure(
+                        db_step=db_step,
+                        original_step=step,
+                        error_message=result.stderr
+                    )
