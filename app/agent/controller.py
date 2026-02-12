@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from app.database.models import Session as DBSession, Prompt, ExecutionPlan
 from app.agent.planner import Planner
 from app.agent.parser import PlanParser
+from app.agent.dispatcher import ToolDispatcher
 
 
 class AgentController:

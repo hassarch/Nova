@@ -5,9 +5,8 @@ from app.config.settings import settings
 class Planner:
 
     def generate_plan(self, prompt: str):
-
         payload = {
-            "model": "llama3",  # change if needed
+            "model": "llama3",
             "prompt": self._build_prompt(prompt),
             "stream": False
         }
@@ -23,7 +22,6 @@ class Planner:
         return response.json()["response"]
 
     def _build_prompt(self, user_prompt: str):
-
         return f"""
 You are NOVA - Neural Orchestrated Virtual Assistant.
 
