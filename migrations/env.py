@@ -6,7 +6,7 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 from app.database.base import Base
-from app.database.model import Session
+from app.database.models import *
 
 from alembic import context
 
