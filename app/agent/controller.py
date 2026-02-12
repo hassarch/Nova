@@ -11,6 +11,8 @@ from app.agent.planner import Planner
 from app.agent.parser import PlanParser
 from app.agent.dispatcher import ToolDispatcher
 from app.agent.retry_engine import RetryEngine
+from app.security.command_validator import CommandValidator, CommandSecurityError
+
 
 
 
@@ -75,8 +77,14 @@ class AgentController:
             print("DEBUG STEP TOOL:", step["tool"])
             print("DEBUG STEP COMMAND:", step["command"])
 
+            try:
+                CommandValidator.validate(step["command"])
+            except CommandSecurityError as e:
+                print(f"SECURITY BLOCKED: {e}")
+                continue
 
             result = self.dispatcher.dispatch(step)
+
             print("DEBUG RESULT : ", result)
 
             if result:
