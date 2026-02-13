@@ -45,8 +45,13 @@ Return strictly this format:
   ]
 }}
 
-IMPORTANT:
+IMPORTANT RULES:
 - Use relative paths starting with "./" for file_path (e.g., "./hello.py", "./src/main.java")
+- For file creation, ALWAYS include content field with appropriate boilerplate or code
+- For empty files, use empty string "" as content
+- For Python files, include basic structure like: if __name__ == "__main__": pass
+- For C files, include: #include <stdio.h>\nint main() {{\n    return 0;\n}}
+- For text files, include meaningful content or empty string
 - For terminal commands, use tool "terminal" with command field populated
 - For file creation, use tool "filesystem" with file_path and content fields populated
 
