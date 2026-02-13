@@ -10,5 +10,7 @@ class Settings:
     DB_USER = os.getenv("DB_USER")
     DB_PASSWORD = os.getenv("DB_PASSWORD")
     OLLAMA_URL = os.getenv("OLLAMA_URL")
+    USE_SANDBOX = os.getenv("USE_SANDBOX", "true").lower() == "true"
+
 
 settings = Settings()

@@ -8,10 +8,8 @@ class ToolDispatcher:
     def __init__(self, use_sandbox: bool = False):
 
         if use_sandbox:
-            print("🐳 Using Docker Sandbox Executor")
             self.executor = DockerExecutor()
         else:
-            print("⚡ Using Native Executor")
             self.executor = NativeExecutor()
 
         self.filesystem_tool = FileSystemTool()

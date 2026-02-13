@@ -10,7 +10,16 @@ class PlanParser:
         try:
             parsed = json.loads(raw_response)
         except json.JSONDecodeError as e:
-            raise Exception(f"Invalid JSON returned by LLM: {e}")
+            # Try to extract JSON from the response
+            import re
+            json_match = re.search(r'\{.*\}', raw_response, re.DOTALL)
+            if json_match:
+                try:
+                    parsed = json.loads(json_match.group())
+                except json.JSONDecodeError:
+                    raise Exception(f"Invalid JSON returned by LLM: {e}")
+            else:
+                raise Exception(f"Invalid JSON returned by LLM: {e}")
 
         # Validate top-level keys
         if "task_id" not in parsed:

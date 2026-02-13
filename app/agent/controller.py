@@ -12,6 +12,7 @@ from app.agent.parser import PlanParser
 from app.agent.dispatcher import ToolDispatcher
 from app.agent.retry_engine import RetryEngine
 from app.security.command_validator import CommandValidator, CommandSecurityError
+from app.config.settings import settings
 
 
 
@@ -22,7 +23,9 @@ class AgentController:
         self.db = db
         self.planner = Planner()
         self.parser = PlanParser()
-        self.dispatcher = ToolDispatcher(use_sandbox=False)
+        self.dispatcher = ToolDispatcher(
+            use_sandbox=settings.USE_SANDBOX
+        )
 
     def run(self, user_prompt: str):
 
@@ -74,18 +77,12 @@ class AgentController:
             self.db.commit()
             self.db.refresh(db_step)
 
-            print("DEBUG STEP TOOL:", step["tool"])
-            print("DEBUG STEP COMMAND:", step["command"])
-
             try:
                 CommandValidator.validate(step["command"])
             except CommandSecurityError as e:
-                print(f"SECURITY BLOCKED: {e}")
                 continue
 
             result = self.dispatcher.dispatch(step)
-
-            print("DEBUG RESULT : ", result)
 
             if result:
                 db_result = ExecutionResult(
@@ -97,10 +94,6 @@ class AgentController:
 
                 self.db.add(db_result)
                 self.db.commit()
-
-                print("\nSTDOUT:", result.stdout)
-                print("STDERR:", result.stderr)
-                print("RETURN CODE:", result.return_code)
 
                 if result.return_code != 0:
                     self.retry_engine.handle_failure(
