@@ -22,7 +22,7 @@ class AgentController:
         self.db = db
         self.planner = Planner()
         self.parser = PlanParser()
-        self.dispatcher = ToolDispatcher()
+        self.dispatcher = ToolDispatcher(use_sandbox=True)
 
     def run(self, user_prompt: str):
 
