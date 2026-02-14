@@ -6,7 +6,7 @@ ENV/
 venv.bak/
 env.bak/
 
-
+nova_agent.egg-info/
 
 # Python
 __pycache__/

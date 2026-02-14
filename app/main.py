@@ -32,6 +32,16 @@ def run(prompt: str):
         
         plan = controller.run(prompt)
         
+        # Check if there's a message indicating task is already complete
+        if plan and isinstance(plan, dict) and plan.get("message"):
+            console.print(Panel(
+                Text(f" {plan['message']}", style="bold yellow"),
+                border_style="yellow",
+                padding=(1, 2)
+            ))
+            console.print()
+            return
+        
         # Results table
         if plan and isinstance(plan, dict) and "steps" in plan:
             table = Table(

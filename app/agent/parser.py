@@ -12,10 +12,15 @@ class PlanParser:
         except json.JSONDecodeError as e:
             # Try to extract JSON from the response
             import re
-            json_match = re.search(r'\{.*\}', raw_response, re.DOTALL)
+            # Look for JSON starting with { and ending with }
+            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', raw_response, re.DOTALL)
             if json_match:
                 try:
-                    parsed = json.loads(json_match.group())
+                    # Clean up the JSON string - remove control characters
+                    json_str = json_match.group()
+                    # Remove newlines and extra whitespace within strings
+                    json_str = json_str.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+                    parsed = json.loads(json_str)
                 except json.JSONDecodeError:
                     raise Exception(f"Invalid JSON returned by LLM: {e}")
             else:
