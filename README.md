@@ -117,7 +117,7 @@ app/
 
 ## Version
 
-**v1.0.0** – Core autonomous engine
+**v0.1.0** – Core autonomous engine
 
 Includes:
 - Structured planning
