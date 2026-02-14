@@ -43,9 +43,6 @@ class PlanParser:
                 "step_id",
                 "tool",
                 "action",
-                "command",
-                "file_path",
-                "content"
             ]
 
             for field in required_fields:
@@ -58,5 +55,18 @@ class PlanParser:
                     f"Invalid tool '{step['tool']}'. "
                     f"Allowed tools: {ALLOWED_TOOLS}"
                 )
+
+            # Validate tool-specific required fields
+            if step["tool"] == "filesystem":
+                if "file_path" not in step:
+                    raise Exception("Missing field 'file_path' in filesystem step")
+                if "content" not in step:
+                    raise Exception("Missing field 'content' in filesystem step")
+            elif step["tool"] == "terminal":
+                if "command" not in step:
+                    raise Exception("Missing field 'command' in terminal step")
+            elif step["tool"] == "docker":
+                if "command" not in step:
+                    raise Exception("Missing field 'command' in docker step")
 
         return parsed

@@ -16,6 +16,8 @@ from app.agent.dispatcher import ToolDispatcher
 from app.agent.retry_engine import RetryEngine
 from app.security.command_validator import CommandValidator, CommandSecurityError
 from app.config.settings import settings
+from app.core.policy.engine import PolicyEngine
+
 
 
 class AgentController:
@@ -28,8 +30,18 @@ class AgentController:
             use_sandbox=settings.USE_SANDBOX
         )
         self.retry_engine = RetryEngine(db,self.dispatcher)  # ✅ Required for failure handling
+        self.policy_engine= PolicyEngine()
+
 
     def run(self, user_prompt: str):
+
+        # Check for empty prompt
+        if not user_prompt or not user_prompt.strip():
+            return {
+                "task_id": str(uuid.uuid4()),
+                "message": "Please provide a task description",
+                "steps": []
+            }
 
         # 1️⃣ Create new session
         session_uuid = str(uuid.uuid4())
@@ -113,6 +125,27 @@ class AgentController:
                         "steps": []
                     }
 
+        # 2️⃣.9️⃣ Pre-check for dangerous operations
+        dangerous_patterns = [
+            "delete everything",
+            "delete all",
+            "deleted everything",
+            "rm -rf",
+            "remove everything",
+            "removed everything",
+            "clear everything",
+            "cleared everything",
+            "wipe",
+            "destroy",
+            "nuke"
+        ]
+        if any(pattern in user_prompt.lower() for pattern in dangerous_patterns):
+            return {
+                "task_id": str(uuid.uuid4()),
+                "message": "❌ Dangerous operation blocked: Cannot delete all files or folders. Please specify which files to delete.",
+                "steps": []
+            }
+
         # 3️⃣ Generate plan (WITH CONTEXT)
         raw_plan = self.planner.generate_plan(
             user_prompt,
@@ -147,6 +180,15 @@ class AgentController:
             self.db.add(db_step)
             self.db.commit()
             self.db.refresh(db_step)
+
+            # 🔐 Policy evaluation
+            decision = self.policy_engine.evaluate(step)
+            if not decision.allowed:
+                print(f"❌ Policy blocked step: {decision.reason}")
+                continue
+
+            if decision.risk_level == "high":
+                print(f"⚠️  High-risk step detected: {decision.reason}")
 
             # 🔐 Validate command security
             try:
