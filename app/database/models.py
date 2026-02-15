@@ -23,8 +23,8 @@ class Session(Base):
     read_count = Column(Integer, default=0)
     write_count = Column(Integer, default=0)
     retry_count = Column(Integer, default=0)
-    high_risk = Column(Boolean, default=False)
-    
+    risk_score = Column(Integer, default=0)
+
     prompts = relationship("Prompt", back_populates="session")
 
 

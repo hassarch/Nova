@@ -103,6 +103,7 @@ class AgentController:
                 # HIGH RISK CHECK
                 if metrics.should_block():
                     print("⚠ HIGH RISK: Operation limit exceeded (max 4)")
+                    print(f"Risk Score: {metrics.risk_score}")
                     print("Re-running prompt due to risk threshold...")
 
                     metrics.track_retry()
@@ -111,7 +112,7 @@ class AgentController:
                     db_session.read_count = metrics.read_count
                     db_session.write_count = metrics.write_count
                     db_session.retry_count = metrics.retry_count
-                    db_session.high_risk = metrics.high_risk
+                    db_session.risk_score = metrics.risk_score
                     self.db.commit()
 
                     return self.run(user_prompt)
@@ -127,5 +128,5 @@ class AgentController:
         db_session.read_count = metrics.read_count
         db_session.write_count = metrics.write_count
         db_session.retry_count = metrics.retry_count
-        db_session.high_risk = metrics.high_risk
+        db_session.risk_score = metrics.risk_score
         self.db.commit()

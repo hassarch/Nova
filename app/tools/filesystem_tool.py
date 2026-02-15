@@ -8,6 +8,7 @@ class FileSystemTool:
 
         file_path = step.get("file_path")
         content = step.get("content")
+        action = step.get("action")
 
         try:
             if not file_path:
@@ -27,7 +28,28 @@ class FileSystemTool:
                     return_code=1
                 )
 
-            # Track write operation
+            # READ
+            if action == "read":
+                if metrics:
+                    metrics.track_read()
+
+                if not os.path.exists(full_path):
+                    return ExecutionResultData(
+                        stdout="",
+                        stderr="File not found",
+                        return_code=1
+                    )
+
+                with open(full_path, "r") as f:
+                    data = f.read()
+
+                return ExecutionResultData(
+                    stdout=data,
+                    stderr="",
+                    return_code=0
+                )
+
+            #  WRITE (default action)
             if metrics:
                 metrics.track_write()
 
@@ -36,7 +58,7 @@ class FileSystemTool:
                     f.write(content)
 
             return ExecutionResultData(
-                stdout=f"File created: {file_path}",
+                stdout=f"File written: {file_path}",
                 stderr="",
                 return_code=0
             )
