@@ -29,6 +29,7 @@ class AgentController:
         )
 
     def run(self, user_prompt: str):
+        adaptive_limit = 4
 
         last_sessions = (
             self.db.query(DBSession)
@@ -42,8 +43,8 @@ class AgentController:
 
             if avg_risk > 8:
                 print("Suggestion: Your recent sessions show high risk behavior.")
-                print("Consider breaking your prompt into smaller steps.")
-
+                print("System entering strict mode.")
+                adaptive_limit = 2
 
         # 1️⃣ Create session
         session_uuid = str(uuid.uuid4())
@@ -53,7 +54,10 @@ class AgentController:
         self.db.refresh(db_session)
 
         # Initialize metrics tracker
-        metrics = MetricsTracker(session_id=db_session.id)
+        metrics = MetricsTracker(
+            session_id=db_session.id,
+            max_operations=adaptive_limit
+        )
 
         # 2️⃣ Save prompt
         db_prompt = Prompt(
@@ -117,7 +121,7 @@ class AgentController:
                 
                 # HIGH RISK CHECK
                 if metrics.should_block():
-                    print("⚠ HIGH RISK: Operation limit exceeded (max 4)")
+                    print(f"⚠ HIGH RISK: Operation limit exceeded (max {metrics.max_operations})")
                     print(f"Risk Score: {metrics.risk_score}")
                     print("Execution stopped due to risk threshold.")
 
@@ -130,7 +134,7 @@ class AgentController:
                     db_session.risk_score = metrics.risk_score
                     self.db.commit()
 
-                    return
+                    return {"status": "blocked"}
 
 
                 # Normal failure handling

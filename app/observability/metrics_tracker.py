@@ -2,12 +2,11 @@ from dataclasses import dataclass
 from typing import Optional
 
 
-MAX_OPERATIONS = 4
-
 
 @dataclass
 class MetricsTracker:
     session_id: Optional[int] = None
+    max_operations: int = 4
     read_count: int = 0
     write_count: int = 0
     retry_count: int = 0
@@ -37,4 +36,4 @@ class MetricsTracker:
         )
 
     def should_block(self):
-        return self.total_operations() > MAX_OPERATIONS
+        return self.total_operations() > self.max_operations
