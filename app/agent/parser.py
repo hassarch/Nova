@@ -12,10 +12,15 @@ class PlanParser:
         except json.JSONDecodeError as e:
             # Try to extract JSON from the response
             import re
-            json_match = re.search(r'\{.*\}', raw_response, re.DOTALL)
+            # Look for JSON starting with { and ending with }
+            json_match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', raw_response, re.DOTALL)
             if json_match:
                 try:
-                    parsed = json.loads(json_match.group())
+                    # Clean up the JSON string - remove control characters
+                    json_str = json_match.group()
+                    # Remove newlines and extra whitespace within strings
+                    json_str = json_str.replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+                    parsed = json.loads(json_str)
                 except json.JSONDecodeError:
                     raise Exception(f"Invalid JSON returned by LLM: {e}")
             else:
@@ -38,9 +43,6 @@ class PlanParser:
                 "step_id",
                 "tool",
                 "action",
-                "command",
-                "file_path",
-                "content"
             ]
 
             for field in required_fields:
@@ -53,5 +55,18 @@ class PlanParser:
                     f"Invalid tool '{step['tool']}'. "
                     f"Allowed tools: {ALLOWED_TOOLS}"
                 )
+
+            # Validate tool-specific required fields
+            if step["tool"] == "filesystem":
+                if "file_path" not in step:
+                    raise Exception("Missing field 'file_path' in filesystem step")
+                if "content" not in step:
+                    raise Exception("Missing field 'content' in filesystem step")
+            elif step["tool"] == "terminal":
+                if "command" not in step:
+                    raise Exception("Missing field 'command' in terminal step")
+            elif step["tool"] == "docker":
+                if "command" not in step:
+                    raise Exception("Missing field 'command' in docker step")
 
         return parsed

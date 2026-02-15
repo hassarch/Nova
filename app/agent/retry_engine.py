@@ -12,11 +12,11 @@ class RetryEngine:
     def __init__(self, db, dispatcher, metrics=None):
         self.db = db
         self.dispatcher = dispatcher
-        self.planner = Planner()
+        self.planner = Planner(db)  # ✅ Context-aware planner
         self.parser = PlanParser()
         self.metrics = metrics
 
-    def handle_failure(self, db_step, original_step, error_message):
+    def handle_failure(self, db_step, original_step, error_message, session_id):
 
         retry_count = 0
 
@@ -27,10 +27,16 @@ class RetryEngine:
                 self.metrics.track_retry()
 
             print(f"\n Retry Attempt {retry_count}")
+            print(f"\n🔁 Retry Attempt {retry_count}")
 
+            # Build fix prompt
             fix_prompt = self._build_fix_prompt(original_step, error_message)
 
-            raw_fix = self.planner.generate_plan(fix_prompt)
+            # 🔥 Context-aware retry planning
+            raw_fix = self.planner.generate_plan(
+                fix_prompt,
+                session_id
+            )
 
             try:
                 parsed_fix = self.parser.validate(raw_fix)
@@ -38,12 +44,20 @@ class RetryEngine:
                 print("Retry validation failed:", e)
                 continue
 
+            # Ensure steps exist
+            if not parsed_fix.get("steps"):
+                print("No steps returned in retry.")
+                continue
+
             # Take first corrected step
             corrected_step = parsed_fix["steps"][0]
 
-            corrected_step["tool"] = normalize_tool(corrected_step["tool"])
+            # Normalize tool name
+            corrected_step["tool"] = normalize_tool(
+                corrected_step.get("tool")
+            )
 
-            # Store retry plan
+            # Store retry plan in DB
             retry_entry = Retry(
                 step_id=db_step.id,
                 retry_plan=parsed_fix,
@@ -71,10 +85,12 @@ class RetryEngine:
                 print("Retry STDERR:", result.stderr)
                 print("Retry RETURN CODE:", result.return_code)
 
+                # If fixed, exit retry loop
                 if result.return_code == 0:
                     print("Step fixed successfully.")
                     return
 
+                # Update error message for next retry
                 error_message = result.stderr
 
         print("Step failed after max retries.")
@@ -82,14 +98,16 @@ class RetryEngine:
     def _build_fix_prompt(self, original_step, error_message):
 
         return f"""
-The following step failed:
+The following execution step failed:
 
-Tool: {original_step['tool']}
-Command: {original_step['command']}
+Tool: {original_step.get('tool')}
+Action: {original_step.get('action')}
+Command: {original_step.get('command')}
+File Path: {original_step.get('file_path')}
 
-Error:
+Error Output:
 {error_message}
 
-Provide a corrected single step in strict JSON format.
-Return only JSON.
+Provide ONE corrected step in strict JSON format.
+Return ONLY valid JSON.
 """

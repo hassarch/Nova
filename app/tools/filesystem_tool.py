@@ -9,6 +9,7 @@ class FileSystemTool:
         file_path = step.get("file_path")
         content = step.get("content")
         action = (step.get("action") or "").lower()
+        action = step.get("action", "").lower()
 
         try:
             if not file_path:
@@ -53,6 +54,23 @@ class FileSystemTool:
             if metrics:
                 metrics.track_write()
 
+            # Handle delete operation
+            if "delete" in action:
+                if os.path.isfile(full_path):
+                    os.remove(full_path)
+                    return ExecutionResultData(
+                        stdout=f"File deleted: {file_path}",
+                        stderr="",
+                        return_code=0
+                    )
+                else:
+                    return ExecutionResultData(
+                        stdout="",
+                        stderr=f"File not found: {file_path}",
+                        return_code=1
+                    )
+
+            # Create or write file
             with open(full_path, "w") as f:
                 if content:
                     f.write(content)
