@@ -22,9 +22,10 @@ from app.core.policy.engine import PolicyEngine
 
 class AgentController:
 
-    def __init__(self, db: Session, simulate: bool = False):
+    def __init__(self, db: Session, simulate: bool = False, plan_only: bool = False):
         self.db = db
         self.simulate = simulate
+        self.plan_only = plan_only
         self.planner = Planner(db)  # ✅ Context-aware planner
         self.parser = PlanParser()
         self.dispatcher = ToolDispatcher(
@@ -165,7 +166,16 @@ class AgentController:
         self.db.commit()
         self.db.refresh(db_plan)
 
-        # 6️⃣ Execute each step (or simulate)
+        # 6️⃣ Execute each step (or simulate/plan-only)
+        if self.plan_only:
+            # In plan-only mode, return the plan without policy evaluation
+            return {
+                "task_id": structured_plan.get("task_id"),
+                "message": structured_plan.get("message"),
+                "steps": structured_plan.get("steps", []),
+                "plan_only": True
+            }
+
         if self.simulate:
             # In simulation mode, evaluate risk for each step and return with simulation flag
             steps_with_risk = []
@@ -173,7 +183,9 @@ class AgentController:
                 decision = self.policy_engine.evaluate(step)
                 step_with_risk = {
                     **step,
-                    "risk": decision.risk_level
+                    "risk": decision.risk_level,
+                    "policy_reason": decision.reason,
+                    "allowed": decision.allowed
                 }
                 steps_with_risk.append(step_with_risk)
             
