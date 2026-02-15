@@ -326,6 +326,30 @@ def run(
         console.print()
 
     finally:
+        # Show metrics for this session
+        try:
+            from app.database.models import Session as DBSession
+            last_session = db.query(DBSession).order_by(DBSession.id.desc()).first()
+            
+            if last_session and not simulate_bool and not plan_only_bool:
+                console.print(
+                    Panel(
+                        Text(
+                            f"📊 Session Metrics\n"
+                            f"Reads: {last_session.read_count} | "
+                            f"Writes: {last_session.write_count} | "
+                            f"Retries: {last_session.retry_count} | "
+                            f"Risk Score: {last_session.risk_score}",
+                            style="dim cyan"
+                        ),
+                        border_style="cyan",
+                        padding=(0, 1)
+                    )
+                )
+                console.print()
+        except:
+            pass
+        
         db.close()
 
 
