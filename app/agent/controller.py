@@ -1,4 +1,5 @@
 import uuid
+from app.observability.metrics_tracker import MetricsTracker
 from sqlalchemy.orm import Session
 from app.database.models import (
     Session as DBSession,
@@ -35,6 +36,9 @@ class AgentController:
         self.db.add(db_session)
         self.db.commit()
         self.db.refresh(db_session)
+
+        # Initialize metrics tracker
+        metrics = MetricsTracker(session_id=db_session.id)
 
         # 2️⃣ Save prompt
         db_prompt = Prompt(
@@ -82,7 +86,7 @@ class AgentController:
             except CommandSecurityError as e:
                 continue
 
-            result = self.dispatcher.dispatch(step)
+            result = self.dispatcher.dispatch(step,metrics)
 
             if result:
                 db_result = ExecutionResult(
@@ -95,9 +99,33 @@ class AgentController:
                 self.db.add(db_result)
                 self.db.commit()
 
+                
+                # HIGH RISK CHECK
+                if metrics.should_block():
+                    print("⚠ HIGH RISK: Operation limit exceeded (max 4)")
+                    print("Re-running prompt due to risk threshold...")
+
+                    metrics.track_retry()
+
+                    # Save metrics before rerun
+                    db_session.read_count = metrics.read_count
+                    db_session.write_count = metrics.write_count
+                    db_session.retry_count = metrics.retry_count
+                    db_session.high_risk = metrics.high_risk
+                    self.db.commit()
+
+                    return self.run(user_prompt)
+
+                # Normal failure handling
                 if result.return_code != 0:
                     self.retry_engine.handle_failure(
                         db_step=db_step,
                         original_step=step,
                         error_message=result.stderr
                     )
+        # Persist final metrics
+        db_session.read_count = metrics.read_count
+        db_session.write_count = metrics.write_count
+        db_session.retry_count = metrics.retry_count
+        db_session.high_risk = metrics.high_risk
+        self.db.commit()

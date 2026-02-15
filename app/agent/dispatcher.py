@@ -14,12 +14,12 @@ class ToolDispatcher:
 
         self.filesystem_tool = FileSystemTool()
 
-    def dispatch(self, step: dict):
+    def dispatch(self, step, metrics=None):
 
         if step["tool"] == "terminal" and step["command"]:
             return self.executor.execute(step["command"])
 
         if step["tool"] == "filesystem":
-            return self.filesystem_tool.execute(step)
+            return self.filesystem_tool.execute(step, metrics)
 
         return None

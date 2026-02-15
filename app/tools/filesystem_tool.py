@@ -4,7 +4,7 @@ from app.execution.result import ExecutionResultData
 
 class FileSystemTool:
 
-    def execute(self, step: dict) -> ExecutionResultData:
+    def execute(self, step: dict, metrics=None) -> ExecutionResultData:
 
         file_path = step.get("file_path")
         content = step.get("content")
@@ -17,7 +17,6 @@ class FileSystemTool:
                     return_code=1
                 )
 
-            # Ensure path is inside current working directory
             base_dir = os.getcwd()
             full_path = os.path.abspath(os.path.join(base_dir, file_path))
 
@@ -28,7 +27,10 @@ class FileSystemTool:
                     return_code=1
                 )
 
-            # Create or write file
+            # Track write operation
+            if metrics:
+                metrics.track_write()
+
             with open(full_path, "w") as f:
                 if content:
                     f.write(content)
