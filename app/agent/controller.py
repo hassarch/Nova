@@ -38,7 +38,7 @@ class AgentController:
         )
 
         if last_sessions:
-            avg_risk = sum(s.risk_score for s in last_sessions) / len(last_sessions)
+            avg_risk = sum((s.risk_score or 0) for s in last_sessions) / len(last_sessions)
 
             if avg_risk > 8:
                 print("Suggestion: Your recent sessions show high risk behavior.")
@@ -119,7 +119,7 @@ class AgentController:
                 if metrics.should_block():
                     print("⚠ HIGH RISK: Operation limit exceeded (max 4)")
                     print(f"Risk Score: {metrics.risk_score}")
-                    print("Re-running prompt due to risk threshold...")
+                    print("Execution stopped due to risk threshold.")
 
                     metrics.track_retry()
 
@@ -130,7 +130,8 @@ class AgentController:
                     db_session.risk_score = metrics.risk_score
                     self.db.commit()
 
-                    return self.run(user_prompt)
+                    return
+
 
                 # Normal failure handling
                 if result.return_code != 0:

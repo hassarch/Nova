@@ -8,7 +8,7 @@ class FileSystemTool:
 
         file_path = step.get("file_path")
         content = step.get("content")
-        action = step.get("action")
+        action = (step.get("action") or "").lower()
 
         try:
             if not file_path:
@@ -29,7 +29,7 @@ class FileSystemTool:
                 )
 
             # READ
-            if action == "read":
+            if "read" in action:
                 if metrics:
                     metrics.track_read()
 
