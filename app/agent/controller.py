@@ -30,6 +30,21 @@ class AgentController:
 
     def run(self, user_prompt: str):
 
+        last_sessions = (
+            self.db.query(DBSession)
+            .order_by(DBSession.id.desc())
+            .limit(3)
+            .all()
+        )
+
+        if last_sessions:
+            avg_risk = sum(s.risk_score for s in last_sessions) / len(last_sessions)
+
+            if avg_risk > 8:
+                print("Suggestion: Your recent sessions show high risk behavior.")
+                print("Consider breaking your prompt into smaller steps.")
+
+
         # 1️⃣ Create session
         session_uuid = str(uuid.uuid4())
         db_session = DBSession(session_id=session_uuid)
