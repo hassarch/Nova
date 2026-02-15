@@ -4,7 +4,8 @@ from sqlalchemy import (
     String,
     DateTime,
     ForeignKey,
-    Text
+    Text,
+    Boolean
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
@@ -18,6 +19,11 @@ class Session(Base):
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(String, unique=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    read_count = Column(Integer, default=0)
+    write_count = Column(Integer, default=0)
+    retry_count = Column(Integer, default=0)
+    risk_score = Column(Integer, default=0)
 
     prompts = relationship("Prompt", back_populates="session")
 

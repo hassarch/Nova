@@ -4,10 +4,11 @@ from app.execution.result import ExecutionResultData
 
 class FileSystemTool:
 
-    def execute(self, step: dict) -> ExecutionResultData:
+    def execute(self, step: dict, metrics=None) -> ExecutionResultData:
 
         file_path = step.get("file_path")
         content = step.get("content")
+        action = (step.get("action") or "").lower()
         action = step.get("action", "").lower()
 
         try:
@@ -18,7 +19,6 @@ class FileSystemTool:
                     return_code=1
                 )
 
-            # Ensure path is inside current working directory
             base_dir = os.getcwd()
             full_path = os.path.abspath(os.path.join(base_dir, file_path))
 
@@ -28,6 +28,31 @@ class FileSystemTool:
                     stderr="Path traversal attempt detected",
                     return_code=1
                 )
+
+            # READ
+            if "read" in action:
+                if metrics:
+                    metrics.track_read()
+
+                if not os.path.exists(full_path):
+                    return ExecutionResultData(
+                        stdout="",
+                        stderr="File not found",
+                        return_code=1
+                    )
+
+                with open(full_path, "r") as f:
+                    data = f.read()
+
+                return ExecutionResultData(
+                    stdout=data,
+                    stderr="",
+                    return_code=0
+                )
+
+            #  WRITE (default action)
+            if metrics:
+                metrics.track_write()
 
             # Handle delete operation
             if "delete" in action:
@@ -51,7 +76,7 @@ class FileSystemTool:
                     f.write(content)
 
             return ExecutionResultData(
-                stdout=f"File created: {file_path}",
+                stdout=f"File written: {file_path}",
                 stderr="",
                 return_code=0
             )

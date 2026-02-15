@@ -9,11 +9,12 @@ MAX_RETRIES = 3
 
 class RetryEngine:
 
-    def __init__(self, db, dispatcher):
+    def __init__(self, db, dispatcher, metrics=None):
         self.db = db
         self.dispatcher = dispatcher
         self.planner = Planner(db)  # ✅ Context-aware planner
         self.parser = PlanParser()
+        self.metrics = metrics
 
     def handle_failure(self, db_step, original_step, error_message, session_id):
 
@@ -22,6 +23,10 @@ class RetryEngine:
         while retry_count < MAX_RETRIES:
 
             retry_count += 1
+            if self.metrics:
+                self.metrics.track_retry()
+
+            print(f"\n Retry Attempt {retry_count}")
             print(f"\n🔁 Retry Attempt {retry_count}")
 
             # Build fix prompt
@@ -63,7 +68,7 @@ class RetryEngine:
             self.db.commit()
 
             # Execute corrected step
-            result = self.dispatcher.dispatch(corrected_step)
+            result = self.dispatcher.dispatch(corrected_step, self.metrics)
 
             if result:
                 db_result = ExecutionResult(

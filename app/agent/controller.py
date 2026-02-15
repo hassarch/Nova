@@ -1,4 +1,5 @@
 import uuid
+from app.observability.metrics_tracker import MetricsTracker
 import os
 from sqlalchemy.orm import Session
 
@@ -36,6 +37,22 @@ class AgentController:
 
 
     def run(self, user_prompt: str):
+        adaptive_limit = 4
+
+        last_sessions = (
+            self.db.query(DBSession)
+            .order_by(DBSession.id.desc())
+            .limit(3)
+            .all()
+        )
+
+        if last_sessions:
+            avg_risk = sum((s.risk_score or 0) for s in last_sessions) / len(last_sessions)
+
+            if avg_risk > 8:
+                print("Suggestion: Your recent sessions show high risk behavior.")
+                print("System entering strict mode.")
+                adaptive_limit = 2
 
         # Check for empty prompt
         if not user_prompt or not user_prompt.strip():
@@ -52,6 +69,12 @@ class AgentController:
         self.db.add(db_session)
         self.db.commit()
         self.db.refresh(db_session)
+
+        # Initialize metrics tracker
+        metrics = MetricsTracker(
+            session_id=db_session.id,
+            max_operations=adaptive_limit
+        )
 
         # 2️⃣ Save prompt
         db_prompt = Prompt(
@@ -228,6 +251,7 @@ class AgentController:
                 # Skip unsafe command
                 continue
 
+            result = self.dispatcher.dispatch(step,metrics)
             # 🚀 Execute step
             result = self.dispatcher.dispatch(step)
 
@@ -242,6 +266,26 @@ class AgentController:
                 self.db.add(db_result)
                 self.db.commit()
 
+                
+                # HIGH RISK CHECK
+                if metrics.should_block():
+                    print(f"⚠ HIGH RISK: Operation limit exceeded (max {metrics.max_operations})")
+                    print(f"Risk Score: {metrics.risk_score}")
+                    print("Execution stopped due to risk threshold.")
+
+                    metrics.track_retry()
+
+                    # Save metrics before rerun
+                    db_session.read_count = metrics.read_count
+                    db_session.write_count = metrics.write_count
+                    db_session.retry_count = metrics.retry_count
+                    db_session.risk_score = metrics.risk_score
+                    self.db.commit()
+
+                    return {"status": "blocked"}
+
+
+                # Normal failure handling
                 # 🔁 Handle failure if needed
                 if result.return_code != 0:
                     self.retry_engine.handle_failure(
@@ -250,6 +294,12 @@ class AgentController:
                         error_message=result.stderr,
                         session_id=session_uuid  # Required for context-aware retry
                     )
+        # Persist final metrics
+        db_session.read_count = metrics.read_count
+        db_session.write_count = metrics.write_count
+        db_session.retry_count = metrics.retry_count
+        db_session.risk_score = metrics.risk_score
+        self.db.commit()
 
         # Return the structured plan
         return structured_plan
