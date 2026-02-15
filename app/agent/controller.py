@@ -22,8 +22,9 @@ from app.core.policy.engine import PolicyEngine
 
 class AgentController:
 
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, simulate: bool = False):
         self.db = db
+        self.simulate = simulate
         self.planner = Planner(db)  # ✅ Context-aware planner
         self.parser = PlanParser()
         self.dispatcher = ToolDispatcher(
@@ -164,7 +165,25 @@ class AgentController:
         self.db.commit()
         self.db.refresh(db_plan)
 
-        # 6️⃣ Execute each step
+        # 6️⃣ Execute each step (or simulate)
+        if self.simulate:
+            # In simulation mode, evaluate risk for each step and return with simulation flag
+            steps_with_risk = []
+            for step in structured_plan.get("steps", []):
+                decision = self.policy_engine.evaluate(step)
+                step_with_risk = {
+                    **step,
+                    "risk": decision.risk_level
+                }
+                steps_with_risk.append(step_with_risk)
+            
+            return {
+                "task_id": structured_plan.get("task_id"),
+                "message": structured_plan.get("message"),
+                "steps": steps_with_risk,
+                "simulation": True
+            }
+
         for index, step in enumerate(structured_plan.get("steps", [])):
 
             db_step = ExecutionStep(
