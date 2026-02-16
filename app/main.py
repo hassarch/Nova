@@ -19,6 +19,8 @@ from app.core.analytics.queries import (
 from app.database.connection import SessionLocal
 from app.database.models import Session as DBSession, Prompt
 from app.agent.controller import AgentController
+from app.core.analytics.ai_analyzer import AIAnalyzer
+
 
 app = typer.Typer()
 console = Console()
@@ -553,6 +555,41 @@ def metrics():
 
     console.print(panel)
     db.close()
+
+@app.command()
+def analyze():
+    """AI-powered system analysis"""
+
+    db = SessionLocal()
+
+    analyzer = AIAnalyzer(db)
+
+    console.print()
+    console.print("[bold cyan]Running AI analysis...[/bold cyan]")
+    console.print()
+
+    try:
+        analysis = analyzer.analyze()
+
+        console.print(
+            Panel(
+                analysis,
+                title="[bold cyan]AI System Analysis[/bold cyan]",
+                border_style="cyan"
+            )
+        )
+
+    except Exception as e:
+        console.print(
+            Panel(
+                f"Error: {e}",
+                border_style="red"
+            )
+        )
+
+    finally:
+        db.close()
+
 
 
 
