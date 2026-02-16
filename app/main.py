@@ -7,7 +7,17 @@ import sys
 import os
 import difflib
 
+from app.core.analytics.queries import (
+    get_session_summary,
+    get_recent_sessions,
+    get_recent_prompts,
+    get_failed_steps,
+    get_retry_stats
+)
+
+
 from app.database.connection import SessionLocal
+from app.database.models import Session as DBSession, Prompt
 from app.agent.controller import AgentController
 
 app = typer.Typer()
@@ -356,7 +366,194 @@ def run(
 @app.command()
 def version():
     """Show NOVA version"""
-    console.print(Text("NOVA v1.0.0", style="bold cyan"))
+    console.print(Text("NOVA v0.2.0", style="bold cyan"))
+
+
+@app.command()
+def session(
+    limit: int = typer.Option(5, help="Number of sessions to show")
+):
+    """View session history and metrics"""
+    
+    console.print()
+    console.print(
+        Panel(
+            Text(" Session History", style="bold cyan"),
+            border_style="cyan",
+            padding=(1, 2)
+        )
+    )
+    console.print()
+    
+    try:
+        db = SessionLocal()
+        sessions = db.query(DBSession).order_by(DBSession.id.desc()).limit(limit).all()
+        
+        if not sessions:
+            console.print("[dim]No sessions found[/dim]")
+            db.close()
+            return
+        
+        # Table view
+        table = Table(
+            title="[bold cyan]Recent Sessions[/bold cyan]",
+            show_header=True,
+            header_style="bold white",
+            border_style="cyan",
+            padding=(0, 1)
+        )
+        
+        table.add_column("Session ID", style="cyan", width=36)
+        table.add_column("Reads", style="green", width=8)
+        table.add_column("Writes", style="green", width=8)
+        table.add_column("Retries", style="yellow", width=8)
+        table.add_column("Risk", style="white", width=8)
+        table.add_column("Created", style="dim", width=20)
+        
+        for s in sessions:
+            created = s.created_at.strftime("%Y-%m-%d %H:%M:%S") if s.created_at else "N/A"
+            table.add_row(
+                s.session_id[:36],
+                str(s.read_count),
+                str(s.write_count),
+                str(s.retry_count),
+                str(s.risk_score),
+                created
+            )
+        
+        console.print(table)
+        console.print()
+        
+        # Show statistics
+        avg_risk = sum(s.risk_score or 0 for s in sessions) / len(sessions) if sessions else 0
+        total_ops = sum((s.read_count or 0) + (s.write_count or 0) for s in sessions)
+        total_retries = sum(s.retry_count or 0 for s in sessions)
+        
+        stats_panel = Panel(
+            Text(
+                f"📊 Statistics (Last {len(sessions)} sessions)\n"
+                f"Average Risk: {avg_risk:.1f} | "
+                f"Total Operations: {total_ops} | "
+                f"Total Retries: {total_retries}",
+                style="dim white"
+            ),
+            border_style="cyan",
+            padding=(0, 1)
+        )
+        console.print(stats_panel)
+        console.print()
+        
+        db.close()
+    
+    except Exception as e:
+        console.print(f"[red]Error: {e}[/red]")
+        console.print()
+
+@app.command()
+def sessions():
+    """Show session summary"""
+
+    db = SessionLocal()
+    summary = get_session_summary(db)
+
+    table = Table(title="[bold cyan]Session Summary[/bold cyan]")
+    table.add_column("Metric", style="cyan")
+    table.add_column("Value", style="green")
+
+    table.add_row("Total Sessions", str(summary["sessions"]))
+    table.add_row("Total Steps", str(summary["steps"]))
+    table.add_row("Execution Results", str(summary["results"]))
+    table.add_row("Total Retries", str(summary["retries"]))
+
+    console.print(table)
+    db.close()
+
+@app.command()
+def history(limit: int = 5):
+    """Show recent prompts"""
+
+    db = SessionLocal()
+    prompts = get_recent_prompts(db, limit)
+
+    table = Table(title="[bold cyan]Recent Prompts[/bold cyan]")
+    table.add_column("ID", style="cyan")
+    table.add_column("Content", style="white")
+
+    for p in prompts:
+        table.add_row(str(p.id), p.content[:60])
+
+    console.print(table)
+    db.close()
+
+
+@app.command()
+def failures():
+    """Show failed execution steps"""
+
+    db = SessionLocal()
+    failed = get_failed_steps(db)
+
+    table = Table(title="[bold red]Failed Steps[/bold red]")
+    table.add_column("Step ID", style="cyan")
+    table.add_column("Return Code", style="red")
+    table.add_column("Error", style="white")
+
+    for f in failed:
+        table.add_row(
+            str(f.step_id),
+            str(f.return_code),
+            (f.stderr or "")[:60]
+        )
+
+    console.print(table)
+    db.close()
+
+
+@app.command()
+def retries():
+    """Show retry attempts"""
+
+    db = SessionLocal()
+    retry_list = get_retry_stats(db)
+
+    table = Table(title="[bold yellow]Retry Attempts[/bold yellow]")
+    table.add_column("Step ID", style="cyan")
+    table.add_column("Retry #", style="yellow")
+
+    for r in retry_list:
+        table.add_row(
+            str(r.step_id),
+            str(r.retry_number)
+        )
+
+    console.print(table)
+    db.close()
+
+
+@app.command()
+def metrics():
+    """Show simple system metrics"""
+
+    db = SessionLocal()
+    summary = get_session_summary(db)
+
+    success_rate = 0
+    if summary["steps"] > 0:
+        success_rate = (summary["results"] / summary["steps"]) * 100
+
+    panel = Panel(
+        f"[bold cyan]NOVA Metrics[/bold cyan]\n\n"
+        f"Sessions: {summary['sessions']}\n"
+        f"Steps: {summary['steps']}\n"
+        f"Results: {summary['results']}\n"
+        f"Retries: {summary['retries']}\n"
+        f"Approx Success Rate: {success_rate:.2f}%",
+        border_style="cyan"
+    )
+
+    console.print(panel)
+    db.close()
+
 
 
 def main():
