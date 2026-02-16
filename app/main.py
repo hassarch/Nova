@@ -1,4 +1,4 @@
-import typer
+import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -15,14 +15,10 @@ from app.core.analytics.queries import (
     get_retry_stats
 )
 
-
 from app.database.connection import SessionLocal
 from app.database.models import Session as DBSession, Prompt
 from app.agent.controller import AgentController
-from app.core.analytics.ai_analyzer import AIAnalyzer
 
-
-app = typer.Typer()
 console = Console()
 
 
@@ -70,12 +66,17 @@ def show_diff_preview(file_path: str, new_content: str):
         console.print()
 
 
-@app.command()
-def run(
-    prompt: str,
-    simulate: bool = typer.Option(False, "--simulate", is_flag=True, help="Run in simulation mode (no execution)"),
-    plan_only: bool = typer.Option(False, "--plan-only", is_flag=True, help="Show plan only (skip policy evaluation)")
-):
+@click.group()
+def cli():
+    """NOVA - AI Agent for task execution"""
+    pass
+
+
+@cli.command()
+@click.argument('prompt')
+@click.option('--simulate', is_flag=True, help='Run in simulation mode (no execution)')
+@click.option('--plan-only', is_flag=True, help='Show plan only (skip policy evaluation)')
+def run(prompt, simulate, plan_only):
     """Execute a task with NOVA"""
 
     console.print()
@@ -90,14 +91,11 @@ def run(
     )
 
     db = SessionLocal()
-    # Workaround: check sys.argv directly for --simulate flag
-    simulate_bool = "--simulate" in sys.argv
-    plan_only_bool = "--plan-only" in sys.argv
-    controller = AgentController(db, simulate=simulate_bool, plan_only=plan_only_bool)
+    controller = AgentController(db, simulate=simulate, plan_only=plan_only)
 
     try:
         console.print(Text(
-            "Planning..." if plan_only_bool else ("Simulating..." if simulate_bool else "Executing..."),
+            "Planning..." if plan_only else ("Simulating..." if simulate else "Executing..."),
             style="yellow"
         ))
         console.print()
@@ -291,6 +289,13 @@ def run(
         # ------------------------------
         if result and isinstance(result, dict) and "steps" in result:
 
+            # Display subtasks if available
+            if result.get("subtasks"):
+                console.print("[bold cyan]📋 Execution Plan:[/bold cyan]")
+                for i, subtask in enumerate(result["subtasks"], 1):
+                    console.print(f"  {i}. {subtask.get('objective', 'N/A')}")
+                console.print()
+
             table = Table(
                 title="[bold cyan]Execution Results[/bold cyan]",
                 show_header=True,
@@ -343,7 +348,7 @@ def run(
             from app.database.models import Session as DBSession
             last_session = db.query(DBSession).order_by(DBSession.id.desc()).first()
             
-            if last_session and not simulate_bool and not plan_only_bool:
+            if last_session and not simulate and not plan_only:
                 console.print(
                     Panel(
                         Text(
@@ -365,16 +370,15 @@ def run(
         db.close()
 
 
-@app.command()
+@cli.command()
 def version():
     """Show NOVA version"""
     console.print(Text("NOVA v0.2.0", style="bold cyan"))
 
 
-@app.command()
-def session(
-    limit: int = typer.Option(5, help="Number of sessions to show")
-):
+@cli.command()
+@click.option('--limit', default=5, help='Number of sessions to show')
+def session(limit):
     """View session history and metrics"""
     
     console.print()
@@ -451,7 +455,8 @@ def session(
         console.print(f"[red]Error: {e}[/red]")
         console.print()
 
-@app.command()
+
+@cli.command()
 def sessions():
     """Show session summary"""
 
@@ -470,8 +475,10 @@ def sessions():
     console.print(table)
     db.close()
 
-@app.command()
-def history(limit: int = 5):
+
+@cli.command()
+@click.option('--limit', default=5, help='Number of prompts to show')
+def history(limit):
     """Show recent prompts"""
 
     db = SessionLocal()
@@ -488,7 +495,7 @@ def history(limit: int = 5):
     db.close()
 
 
-@app.command()
+@cli.command()
 def failures():
     """Show failed execution steps"""
 
@@ -511,7 +518,7 @@ def failures():
     db.close()
 
 
-@app.command()
+@cli.command()
 def retries():
     """Show retry attempts"""
 
@@ -532,7 +539,7 @@ def retries():
     db.close()
 
 
-@app.command()
+@cli.command()
 def metrics():
     """Show simple system metrics"""
 
@@ -556,45 +563,9 @@ def metrics():
     console.print(panel)
     db.close()
 
-@app.command()
-def analyze():
-    """AI-powered system analysis"""
-
-    db = SessionLocal()
-
-    analyzer = AIAnalyzer(db)
-
-    console.print()
-    console.print("[bold cyan]Running AI analysis...[/bold cyan]")
-    console.print()
-
-    try:
-        analysis = analyzer.analyze()
-
-        console.print(
-            Panel(
-                analysis,
-                title="[bold cyan]AI System Analysis[/bold cyan]",
-                border_style="cyan"
-            )
-        )
-
-    except Exception as e:
-        console.print(
-            Panel(
-                f"Error: {e}",
-                border_style="red"
-            )
-        )
-
-    finally:
-        db.close()
-
-
-
 
 def main():
-    app()
+    cli()
 
 
 if __name__ == "__main__":

@@ -37,37 +37,48 @@ CRITICAL: You MUST return ONLY valid JSON. Nothing else.
 ENVIRONMENT CONTEXT:
 {context_str}
 
-Return this exact format:
+Return JSON in EXACTLY this format:
+
 {{
   "task_id": "unique_id",
+  "goal": "overall goal description",
   "message": "optional message if task is already complete or skipped",
-  "steps": [
+  "subtasks": [
     {{
-      "step_id": "step_1",
-      "tool": "filesystem",
-      "action": "Create file",
-      "command": null,
-      "file_path": "./filename.ext",
-      "content": "file content"
+      "objective": "subtask objective",
+      "steps": [
+        {{
+          "step_id": "step_1",
+          "tool": "filesystem",
+          "action": "Create file",
+          "command": null,
+          "file_path": "./filename.ext",
+          "content": "file content"
+        }}
+      ]
     }}
   ]
 }}
 
 RULES:
 - ONLY output JSON
-- NO markdown, NO explanations, NO backticks
+- NO markdown
+- NO explanations
+- NO backticks
 - Escape all quotes in content with backslash
 - Use ./ for relative paths
-- For Python files: include if __name__ == "__main__": pass
-- For C files: include #include <stdio.h> and main function
-- For empty files: use empty string ""
-- IMPORTANT: If the user asks to initialize git and git is already initialized (git_status is not "Git not initialized"), return an empty steps array with a message explaining git is already initialized
-- IMPORTANT: Check the git_status in the context before attempting any git initialization
-- IMPORTANT: When the user refers to "that file", "the file we just created", "the file", "that code", or similar, use the most_recent_file from context
-- IMPORTANT: When modifying a file, READ the most_recent_file_content first to understand what you're modifying
-- IMPORTANT: If modifying a file, use "Modify file" action, not "Create file"
-- IMPORTANT: When modifying a file, the tool should be "filesystem" with action "Modify file"
-- IMPORTANT: Preserve the original file's purpose and structure when modifying
+- Break complex tasks into logical subtasks
+- Each subtask must have a clear objective
+- Each subtask must contain one or more steps
+- For simple tasks, create ONE subtask only
+- If task is already complete, return empty subtasks array and provide message
+- When modifying a file:
+  - Use tool "filesystem"
+  - Use action "Modify file"
+  - Preserve original file structure
+- If git is already initialized, do NOT reinitialize it
+- Always consider git state before git operations
+- Preserve project structure integrity
 
 User request: {user_prompt}
 """

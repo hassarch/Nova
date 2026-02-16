@@ -4,6 +4,7 @@ TOOL_NORMALIZATION_MAP = {
     "file_writer": "filesystem",
     "node": "terminal",
     "python": "terminal",
+    "python3": "terminal",
     "bash": "terminal",
     "shell": "terminal",
     "cmd": "terminal",
@@ -12,7 +13,15 @@ TOOL_NORMALIZATION_MAP = {
     "code": "filesystem",
     "write": "filesystem",
     "create": "filesystem",
-    "file": "filesystem"
+    "file": "filesystem",
+    "pip": "terminal",
+    "npm": "terminal",
+    "yarn": "terminal",
+    "apt": "terminal",
+    "brew": "terminal",
+    "docker-compose": "terminal",
+    "docker": "docker",
+    "git": "git"
 }
 
 

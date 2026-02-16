@@ -192,17 +192,27 @@ class AgentController:
         # 6️⃣ Execute each step (or simulate/plan-only)
         if self.plan_only:
             # In plan-only mode, return the plan without policy evaluation
+            # Flatten subtasks into steps
+            all_steps = []
+            for subtask in structured_plan.get("subtasks", []):
+                all_steps.extend(subtask.get("steps", []))
+            
             return {
                 "task_id": structured_plan.get("task_id"),
                 "message": structured_plan.get("message"),
-                "steps": structured_plan.get("steps", []),
+                "steps": all_steps,
                 "plan_only": True
             }
 
         if self.simulate:
             # In simulation mode, evaluate risk for each step and return with simulation flag
+            # Flatten subtasks into steps
+            all_steps = []
+            for subtask in structured_plan.get("subtasks", []):
+                all_steps.extend(subtask.get("steps", []))
+            
             steps_with_risk = []
-            for step in structured_plan.get("steps", []):
+            for step in all_steps:
                 decision = self.policy_engine.evaluate(step)
                 step_with_risk = {
                     **step,
@@ -219,7 +229,12 @@ class AgentController:
                 "simulation": True
             }
 
-        for index, step in enumerate(structured_plan.get("steps", [])):
+        # Flatten subtasks into a single steps list
+        all_steps = []
+        for subtask in structured_plan.get("subtasks", []):
+            all_steps.extend(subtask.get("steps", []))
+
+        for index, step in enumerate(all_steps):
 
             db_step = ExecutionStep(
                 plan_id=db_plan.id,
@@ -251,9 +266,8 @@ class AgentController:
                 # Skip unsafe command
                 continue
 
-            result = self.dispatcher.dispatch(step,metrics)
+            result = self.dispatcher.dispatch(step, metrics)
             # 🚀 Execute step
-            result = self.dispatcher.dispatch(step)
 
             if result:
                 db_result = ExecutionResult(
@@ -301,5 +315,10 @@ class AgentController:
         db_session.risk_score = metrics.risk_score
         self.db.commit()
 
-        # Return the structured plan
-        return structured_plan
+        # Return the structured plan with flattened steps
+        return {
+            "task_id": structured_plan.get("task_id"),
+            "message": structured_plan.get("message"),
+            "steps": all_steps,
+            "subtasks": structured_plan.get("subtasks", [])
+        }
