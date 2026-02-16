@@ -2,7 +2,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 
-
 @dataclass
 class MetricsTracker:
     session_id: Optional[int] = None
@@ -29,11 +28,7 @@ class MetricsTracker:
 
     def _update_risk(self):
         # Weighted risk formula
-        self.risk_score = (
-            (self.read_count * 1) +
-            (self.write_count * 2) +
-            (self.retry_count * 3)
-        )
+        self.risk_score = (self.read_count * 1) + (self.write_count * 2) + (self.retry_count * 3)
 
     def should_block(self):
         return self.total_operations() > self.max_operations

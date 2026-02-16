@@ -1,12 +1,7 @@
 from sqlalchemy import func
-from app.database.models import (
-    Session as DBSession,
-    Prompt,
-    ExecutionPlan,
-    ExecutionStep,
-    ExecutionResult,
-    Retry
-)
+
+from app.database.models import ExecutionResult, ExecutionStep, Prompt, Retry
+from app.database.models import Session as DBSession
 
 
 def get_session_summary(db):
@@ -19,34 +14,20 @@ def get_session_summary(db):
         "sessions": total_sessions or 0,
         "steps": total_steps or 0,
         "results": total_results or 0,
-        "retries": total_retries or 0
+        "retries": total_retries or 0,
     }
 
 
 def get_recent_sessions(db, limit=5):
-    return (
-        db.query(DBSession)
-        .order_by(DBSession.id.desc())
-        .limit(limit)
-        .all()
-    )
+    return db.query(DBSession).order_by(DBSession.id.desc()).limit(limit).all()
 
 
 def get_recent_prompts(db, limit=5):
-    return (
-        db.query(Prompt)
-        .order_by(Prompt.id.desc())
-        .limit(limit)
-        .all()
-    )
+    return db.query(Prompt).order_by(Prompt.id.desc()).limit(limit).all()
 
 
 def get_failed_steps(db):
-    return (
-        db.query(ExecutionResult)
-        .filter(ExecutionResult.return_code != 0)
-        .all()
-    )
+    return db.query(ExecutionResult).filter(ExecutionResult.return_code != 0).all()
 
 
 def get_retry_stats(db):

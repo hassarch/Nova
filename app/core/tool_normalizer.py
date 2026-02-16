@@ -21,7 +21,7 @@ TOOL_NORMALIZATION_MAP = {
     "brew": "terminal",
     "docker-compose": "terminal",
     "docker": "docker",
-    "git": "git"
+    "git": "git",
 }
 
 

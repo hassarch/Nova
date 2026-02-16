@@ -1,6 +1,5 @@
 import re
 
-
 FORBIDDEN_PATTERNS = [
     r"\bsudo\b",
     r"\brm\s+-rf\b",
@@ -17,15 +16,11 @@ class CommandSecurityError(Exception):
 
 
 class CommandValidator:
-
     @staticmethod
     def validate(command: str):
-
         if not command:
             return
 
         for pattern in FORBIDDEN_PATTERNS:
             if re.search(pattern, command):
-                raise CommandSecurityError(
-                    f"Blocked unsafe command pattern: {pattern}"
-                )
+                raise CommandSecurityError(f"Blocked unsafe command pattern: {pattern}")

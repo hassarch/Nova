@@ -1,6 +1,5 @@
-from typing import Dict
 import re
-
+from typing import Dict
 
 # Risk scoring rules
 HIGH_RISK_COMMANDS = [
@@ -28,17 +27,11 @@ def evaluate_command(command: str) -> Dict:
     # Critical block
     for pattern in CRITICAL_PATTERNS:
         if re.search(pattern, command):
-            return {
-                "risk": "critical",
-                "reason": f"Matched critical pattern: {pattern}"
-            }
+            return {"risk": "critical", "reason": f"Matched critical pattern: {pattern}"}
 
     # High risk (allowed but flagged)
     for pattern in HIGH_RISK_COMMANDS:
         if re.search(pattern, command):
-            return {
-                "risk": "high",
-                "reason": f"High-risk command detected: {pattern}"
-            }
+            return {"risk": "high", "reason": f"High-risk command detected: {pattern}"}
 
     return {"risk": "low", "reason": None}

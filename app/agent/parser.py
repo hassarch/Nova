@@ -1,40 +1,37 @@
 import json
-from app.core.tool_registry import ALLOWED_TOOLS
+
 from app.core.tool_normalizer import normalize_tool
+from app.core.tool_registry import ALLOWED_TOOLS
 
 
 class PlanParser:
-
     def validate(self, raw_response: str):
-
         try:
             parsed = json.loads(raw_response)
         except json.JSONDecodeError as e:
             # Try to extract JSON from response using bracket matching
-            import re
-            
             # Find the first opening brace
-            start_idx = raw_response.find('{')
+            start_idx = raw_response.find("{")
             if start_idx == -1:
                 raise Exception(f"Invalid JSON returned by LLM: {e}")
-            
+
             # Match braces to find the complete JSON object
             brace_count = 0
             end_idx = -1
             for i in range(start_idx, len(raw_response)):
-                if raw_response[i] == '{':
+                if raw_response[i] == "{":
                     brace_count += 1
-                elif raw_response[i] == '}':
+                elif raw_response[i] == "}":
                     brace_count -= 1
                     if brace_count == 0:
                         end_idx = i + 1
                         break
-            
+
             if end_idx == -1:
                 raise Exception(f"Invalid JSON returned by LLM: {e}")
-            
+
             json_str = raw_response[start_idx:end_idx]
-            
+
             try:
                 parsed = json.loads(json_str)
             except json.JSONDecodeError as parse_error:
@@ -57,12 +54,7 @@ class PlanParser:
                 "task_id": parsed.get("task_id"),
                 "goal": "Auto-wrapped flat plan",
                 "message": parsed.get("message"),
-                "subtasks": [
-                    {
-                        "objective": "Single-step task",
-                        "steps": parsed["steps"]
-                    }
-                ]
+                "subtasks": [{"objective": "Single-step task", "steps": parsed["steps"]}],
             }
 
         # -------------------------
@@ -76,7 +68,6 @@ class PlanParser:
             raise Exception("'subtasks' must be a list")
 
         for subtask in parsed["subtasks"]:
-
             if "objective" not in subtask:
                 raise Exception("Each subtask must have an 'objective'")
 
@@ -91,7 +82,6 @@ class PlanParser:
             # -------------------------
 
             for step in subtask["steps"]:
-
                 required_fields = [
                     "step_id",
                     "tool",
@@ -105,10 +95,7 @@ class PlanParser:
                 step["tool"] = normalize_tool(step["tool"])
 
                 if step["tool"] not in ALLOWED_TOOLS:
-                    raise Exception(
-                        f"Invalid tool '{step['tool']}'. "
-                        f"Allowed tools: {ALLOWED_TOOLS}"
-                    )
+                    raise Exception(f"Invalid tool '{step['tool']}'. " f"Allowed tools: {ALLOWED_TOOLS}")
 
                 # Tool-specific validation
                 if step["tool"] == "filesystem":

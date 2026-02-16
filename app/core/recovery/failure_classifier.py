@@ -10,10 +10,8 @@ class FailureType:
 
 
 class FailureClassifier:
-
     @staticmethod
     def classify(stderr: str) -> str:
-
         if not stderr:
             return FailureType.UNKNOWN
 

@@ -3,8 +3,8 @@
 import os
 import subprocess
 from typing import List
-from .models import ExecutionContext
 
+from .models import ExecutionContext
 
 WHITELISTED_TOOLS = ["node", "npm", "python3", "docker", "git", "pip"]
 
@@ -80,6 +80,7 @@ def get_most_recent_file() -> str:
     """Get the most recently modified file in the current directory"""
     try:
         import glob
+
         files = glob.glob("*")
         if not files:
             return "None"
@@ -94,13 +95,14 @@ def get_most_recent_file_content() -> str:
     """Get the content of the most recently modified file"""
     try:
         import glob
+
         files = glob.glob("*")
         if not files:
             return ""
         # Get the most recently modified file
         most_recent = max(files, key=lambda f: os.path.getmtime(f) if os.path.isfile(f) else 0)
         if os.path.isfile(most_recent):
-            with open(most_recent, 'r', encoding='utf-8', errors='ignore') as f:
+            with open(most_recent, "r", encoding="utf-8", errors="ignore") as f:
                 return f.read()[:1000]  # Limit to 1000 chars
         return ""
     except Exception:

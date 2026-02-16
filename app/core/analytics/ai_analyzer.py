@@ -1,30 +1,21 @@
 import requests
+
 from app.config.settings import settings
 from app.core.analytics.queries import get_session_summary
 
 
 class AIAnalyzer:
-
     def __init__(self, db):
         self.db = db
 
     def analyze(self):
-
         summary = get_session_summary(self.db)
 
         prompt = self._build_prompt(summary)
 
-        payload = {
-            "model": "llama3",
-            "prompt": prompt,
-            "stream": False
-        }
+        payload = {"model": "llama3", "prompt": prompt, "stream": False}
 
-        response = requests.post(
-            f"{settings.OLLAMA_URL}/api/generate",
-            json=payload,
-            timeout=120
-        )
+        response = requests.post(f"{settings.OLLAMA_URL}/api/generate", json=payload, timeout=120)
 
         if response.status_code != 200:
             raise Exception("Failed to connect to Ollama")
@@ -32,7 +23,6 @@ class AIAnalyzer:
         return response.json()["response"]
 
     def _build_prompt(self, summary: dict):
-
         return f"""
 You are an AI system performance analyst.
 

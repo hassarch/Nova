@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+
 from app.config.settings import settings
-from app.config.logging import logger
 
 DATABASE_URL = (
     f"postgresql+psycopg://{settings.DB_USER}:"
@@ -13,8 +13,4 @@ DATABASE_URL = (
 
 engine = create_engine(DATABASE_URL, echo=False)
 
-SessionLocal = sessionmaker(
-    autocommit=False,
-    autoflush=False,
-    bind=engine
-)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

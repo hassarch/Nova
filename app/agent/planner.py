@@ -1,11 +1,11 @@
 import requests
+
 from app.config.settings import settings
 from app.core.context.collector import collect_context
 from app.core.context.formatter import format_context_for_prompt
 
 
 class Planner:
-
     def __init__(self, db):
         self.db = db
 
@@ -14,11 +14,7 @@ class Planner:
         context = collect_context(self.db, session_id)
         context_str = format_context_for_prompt(context)
 
-        payload = {
-            "model": "llama3",
-            "prompt": self._build_prompt(prompt, context_str),
-            "stream": False
-        }
+        payload = {"model": "llama3", "prompt": self._build_prompt(prompt, context_str), "stream": False}
 
         url = f"{settings.OLLAMA_URL}/api/generate"
 

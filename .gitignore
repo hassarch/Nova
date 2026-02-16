@@ -119,3 +119,5 @@ yarn-error.log
 *.key
 *.crt
 
+# CI/CD
+scripts/

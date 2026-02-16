@@ -1,17 +1,14 @@
-from app.agent.planner import Planner
 from app.agent.parser import PlanParser
-from app.database.models import Retry, ExecutionResult
-from app.core.tool_normalizer import normalize_tool
+from app.agent.planner import Planner
 from app.core.recovery.failure_classifier import FailureClassifier
 from app.core.recovery.strategy_engine import StrategyEngine
-
-
+from app.core.tool_normalizer import normalize_tool
+from app.database.models import ExecutionResult, Retry
 
 MAX_RETRIES = 3
 
 
 class RetryEngine:
-
     def __init__(self, db, dispatcher, metrics=None):
         self.db = db
         self.dispatcher = dispatcher
@@ -23,12 +20,10 @@ class RetryEngine:
         self.metrics = metrics
 
     def handle_failure(self, db_step, original_step, error_message, session_id):
-
         retry_count = 0
         tried_strategies = set()  # Track strategies already attempted
 
         while retry_count < MAX_RETRIES:
-
             retry_count += 1
             if self.metrics:
                 self.metrics.track_retry()
@@ -40,52 +35,46 @@ class RetryEngine:
             print(f"📋 Failure Type: {failure_type}")
 
             # 2️⃣ Get strategy for this failure type
-            strategy_step = self.strategy_engine.get_strategy(
-                failure_type,
-                original_step
-            )
+            strategy_step = self.strategy_engine.get_strategy(failure_type, original_step)
 
             # If strategy exists and hasn't been tried, try it
             if strategy_step and failure_type not in tried_strategies:
                 print(f"🛠 Applying strategy for {failure_type}")
                 tried_strategies.add(failure_type)
-                
+
                 # Execute strategy step
                 strategy_result = self.dispatcher.dispatch(strategy_step, self.metrics)
-                
+
                 if strategy_result and strategy_result.return_code == 0:
-                    print(f"✓ Strategy succeeded. Retrying original step...")
-                    
+                    print("✓ Strategy succeeded. Retrying original step...")
+
                     # Retry original step after strategy
                     result = self.dispatcher.dispatch(original_step, self.metrics)
-                    
+
                     if result and result.return_code == 0:
                         print("✓ Step fixed successfully after strategy.")
                         return
                     else:
                         # Strategy helped but original still fails
                         error_message = result.stderr if result else "Unknown error"
-                        print(f"⚠ Strategy helped but original step still failed")
+                        print("⚠ Strategy helped but original step still failed")
                         continue
                 else:
                     # Strategy failed, try LLM
-                    print(f"⚠ Strategy failed, falling back to LLM retry...")
+                    print("⚠ Strategy failed, falling back to LLM retry...")
                     error_message = strategy_result.stderr if strategy_result else "Strategy execution failed"
             elif strategy_step and failure_type in tried_strategies:
                 # Strategy already tried, skip to LLM
                 print(f"⏭ Strategy for {failure_type} already attempted, skipping...")
 
             # 4️⃣ Fallback to LLM-based retry if no strategy or strategy failed
-            print(f"🤖 Using LLM-based retry...")
-            
+            print("🤖 Using LLM-based retry...")
+
             # Build fix prompt
             fix_prompt = self._build_fix_prompt(original_step, error_message)
 
             # Context-aware retry planning
-            raw_fix = self.planner.generate_plan(
-                fix_prompt,
-                session_id
-            )
+            raw_fix = self.planner.generate_plan(fix_prompt, session_id)
 
             try:
                 parsed_fix = self.parser.validate(raw_fix)
@@ -102,16 +91,10 @@ class RetryEngine:
             corrected_step = parsed_fix["steps"][0]
 
             # Normalize tool name
-            corrected_step["tool"] = normalize_tool(
-                corrected_step.get("tool")
-            )
+            corrected_step["tool"] = normalize_tool(corrected_step.get("tool"))
 
             # Store retry plan in DB
-            retry_entry = Retry(
-                step_id=db_step.id,
-                retry_plan=parsed_fix,
-                retry_number=retry_count
-            )
+            retry_entry = Retry(step_id=db_step.id, retry_plan=parsed_fix, retry_number=retry_count)
 
             self.db.add(retry_entry)
             self.db.commit()
@@ -121,10 +104,7 @@ class RetryEngine:
 
             if result:
                 db_result = ExecutionResult(
-                    step_id=db_step.id,
-                    stdout=result.stdout,
-                    stderr=result.stderr,
-                    return_code=result.return_code
+                    step_id=db_step.id, stdout=result.stdout, stderr=result.stderr, return_code=result.return_code
                 )
 
                 self.db.add(db_result)
@@ -145,7 +125,6 @@ class RetryEngine:
         print("Step failed after max retries.")
 
     def _build_fix_prompt(self, original_step, error_message):
-
         return f"""
 The following execution step failed:
 
