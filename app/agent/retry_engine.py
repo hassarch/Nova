@@ -2,6 +2,9 @@ from app.agent.planner import Planner
 from app.agent.parser import PlanParser
 from app.database.models import Retry, ExecutionResult
 from app.core.tool_normalizer import normalize_tool
+from app.core.recovery.failure_classifier import FailureClassifier
+from app.core.recovery.strategy_engine import StrategyEngine
+
 
 
 MAX_RETRIES = 3
@@ -12,6 +15,9 @@ class RetryEngine:
     def __init__(self, db, dispatcher, metrics=None):
         self.db = db
         self.dispatcher = dispatcher
+        self.classifier = FailureClassifier()
+        self.strategy_engine = StrategyEngine()
+
         self.planner = Planner(db)  # ✅ Context-aware planner
         self.parser = PlanParser()
         self.metrics = metrics
@@ -19,6 +25,7 @@ class RetryEngine:
     def handle_failure(self, db_step, original_step, error_message, session_id):
 
         retry_count = 0
+        tried_strategies = set()  # Track strategies already attempted
 
         while retry_count < MAX_RETRIES:
 
@@ -26,13 +33,55 @@ class RetryEngine:
             if self.metrics:
                 self.metrics.track_retry()
 
-            print(f"\n Retry Attempt {retry_count}")
             print(f"\n🔁 Retry Attempt {retry_count}")
 
+            # 1️⃣ Classify the failure type
+            failure_type = self.classifier.classify(error_message)
+            print(f"📋 Failure Type: {failure_type}")
+
+            # 2️⃣ Get strategy for this failure type
+            strategy_step = self.strategy_engine.get_strategy(
+                failure_type,
+                original_step
+            )
+
+            # If strategy exists and hasn't been tried, try it
+            if strategy_step and failure_type not in tried_strategies:
+                print(f"🛠 Applying strategy for {failure_type}")
+                tried_strategies.add(failure_type)
+                
+                # Execute strategy step
+                strategy_result = self.dispatcher.dispatch(strategy_step, self.metrics)
+                
+                if strategy_result and strategy_result.return_code == 0:
+                    print(f"✓ Strategy succeeded. Retrying original step...")
+                    
+                    # Retry original step after strategy
+                    result = self.dispatcher.dispatch(original_step, self.metrics)
+                    
+                    if result and result.return_code == 0:
+                        print("✓ Step fixed successfully after strategy.")
+                        return
+                    else:
+                        # Strategy helped but original still fails
+                        error_message = result.stderr if result else "Unknown error"
+                        print(f"⚠ Strategy helped but original step still failed")
+                        continue
+                else:
+                    # Strategy failed, try LLM
+                    print(f"⚠ Strategy failed, falling back to LLM retry...")
+                    error_message = strategy_result.stderr if strategy_result else "Strategy execution failed"
+            elif strategy_step and failure_type in tried_strategies:
+                # Strategy already tried, skip to LLM
+                print(f"⏭ Strategy for {failure_type} already attempted, skipping...")
+
+            # 4️⃣ Fallback to LLM-based retry if no strategy or strategy failed
+            print(f"🤖 Using LLM-based retry...")
+            
             # Build fix prompt
             fix_prompt = self._build_fix_prompt(original_step, error_message)
 
-            # 🔥 Context-aware retry planning
+            # Context-aware retry planning
             raw_fix = self.planner.generate_plan(
                 fix_prompt,
                 session_id
@@ -87,7 +136,7 @@ class RetryEngine:
 
                 # If fixed, exit retry loop
                 if result.return_code == 0:
-                    print("Step fixed successfully.")
+                    print("Step fixed successfully via LLM retry.")
                     return
 
                 # Update error message for next retry
