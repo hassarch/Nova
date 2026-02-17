@@ -66,6 +66,8 @@ class ResumeEngine:
 
     def get_execution_plan(self, session_id: int) -> Optional[Dict]:
         """Load the execution plan for a session"""
+        import json
+
         db_prompt = self.db.query(Prompt).filter_by(session_id=session_id).first()
         if not db_prompt:
             return None
@@ -74,7 +76,11 @@ class ResumeEngine:
         if not db_plan:
             return None
 
-        return db_plan.plan_json
+        # Deserialize JSON if it's a string
+        plan_json = db_plan.plan_json
+        if isinstance(plan_json, str):
+            return json.loads(plan_json)
+        return plan_json
 
     def mark_subtask_running(self, subtask_id: int):
         """Mark a subtask as running"""

@@ -30,9 +30,21 @@ jobs:
         pip install black isort flake8 mypy pytest pytest-cov
     
     - name: Run CI checks
+      env:
+        DB_HOST: ""
+        DB_PORT: ""
+        DB_NAME: ""
+        DB_USER: ""
+        DB_PASSWORD: ""
       run: bash scripts/run-ci-checks.sh
     
     - name: Run tests with coverage
+      env:
+        DB_HOST: ""
+        DB_PORT: ""
+        DB_NAME: ""
+        DB_USER: ""
+        DB_PASSWORD: ""
       run: |
         pytest tests -m unit -v --cov=app --cov-report=xml --cov-report=term-missing
     

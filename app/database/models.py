@@ -1,5 +1,4 @@
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -39,7 +38,7 @@ class ExecutionPlan(Base):
 
     id = Column(Integer, primary_key=True)
     prompt_id = Column(Integer, ForeignKey("prompts.id"))
-    plan_json = Column(JSONB, nullable=False)
+    plan_json = Column(Text, nullable=False)  # Use Text for SQLite compatibility
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     prompt = relationship("Prompt", back_populates="execution_plan")
@@ -81,7 +80,7 @@ class Retry(Base):
 
     id = Column(Integer, primary_key=True)
     step_id = Column(Integer, ForeignKey("execution_steps.id"))
-    retry_plan = Column(JSONB)
+    retry_plan = Column(Text)  # Use Text for SQLite compatibility
     retry_number = Column(Integer)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

@@ -16,7 +16,10 @@ def setup_test_db():
     """Create all tables in the test database"""
     Base.metadata.create_all(bind=engine)
     yield
-    Base.metadata.drop_all(bind=engine)
+    try:
+        Base.metadata.drop_all(bind=engine)
+    except Exception:
+        pass
 
 
 @pytest.fixture
@@ -186,6 +189,8 @@ class TestWorkflowStateEngine:
 
     def test_execution_plan_loading(self, db):
         """Should load execution plan from DB"""
+        import json
+
         controller = AgentController(db)
 
         # Create test session and plan
@@ -207,7 +212,7 @@ class TestWorkflowStateEngine:
             ],
         }
 
-        db_plan = ExecutionPlan(prompt_id=db_prompt.id, plan_json=plan_json)
+        db_plan = ExecutionPlan(prompt_id=db_prompt.id, plan_json=json.dumps(plan_json))
         db.add(db_plan)
         db.commit()
 
