@@ -23,6 +23,7 @@ def unique_session_id():
     return f"test-session-{uuid.uuid4().hex[:8]}"
 
 
+@pytest.mark.unit
 class TestWorkflowStateEngine:
     """Test persistent workflow state management"""
 
