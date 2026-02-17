@@ -26,7 +26,7 @@ class ResumeEngine:
             if result.stdout.strip():
                 return {"safe": False, "reason": "Git working tree has uncommitted changes"}
 
-            return {"safe": True}
+            return {"safe": True, "reason": "Git working tree is clean"}
         except Exception as e:
             return {"safe": False, "reason": f"Git check failed: {str(e)}"}
 
@@ -47,7 +47,7 @@ class ResumeEngine:
         if running_subtasks:
             return {"safe": False, "reason": "Session has running subtasks"}
 
-        return {"safe": True}
+        return {"safe": True, "reason": "All safety checks passed"}
 
     def get_resume_point(self, session_id: int) -> Optional[Dict]:
         """Find the first incomplete subtask to resume from"""
