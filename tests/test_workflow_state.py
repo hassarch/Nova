@@ -4,10 +4,19 @@ import uuid
 import pytest
 
 from app.agent.controller import AgentController
-from app.database.connection import SessionLocal
+from app.database.base import Base
+from app.database.connection import SessionLocal, engine
 from app.database.models import ExecutionPlan, Prompt
 from app.database.models import Session as DBSession
 from app.database.models import WorkflowSubtask
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_test_db():
+    """Create all tables in the test database"""
+    Base.metadata.create_all(bind=engine)
+    yield
+    Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture
