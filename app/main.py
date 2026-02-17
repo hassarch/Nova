@@ -325,6 +325,71 @@ def run(prompt, simulate, plan_only):
 
 
 @cli.command()
+@click.argument("session_identifier")
+def resume(session_identifier):
+    """Resume a failed workflow from the last incomplete subtask"""
+
+    console.print()
+    console.print(Panel(Text(f" Resume Session {session_identifier}", style="bold cyan"), border_style="cyan", padding=(1, 2)))
+    console.print()
+
+    db = SessionLocal()
+    controller = AgentController(db)
+
+    try:
+        console.print(Text("Resuming workflow...", style="yellow"))
+        console.print()
+
+        # Try to parse as integer first (database ID), then as session UUID
+        db_session = None
+        if session_identifier.isdigit():
+            db_session = db.query(DBSession).filter_by(id=int(session_identifier)).first()
+        else:
+            db_session = db.query(DBSession).filter_by(session_id=session_identifier).first()
+
+        if not db_session:
+            console.print(
+                Panel(
+                    Text(f"✗ Error: Session '{session_identifier}' not found", style="bold red"),
+                    border_style="red",
+                    padding=(1, 2),
+                )
+            )
+            console.print()
+            db.close()
+            return
+
+        result = controller.resume(db_session.id)
+
+        if "error" in result:
+            console.print(
+                Panel(
+                    Text(f"✗ Error: {result['error']}", style="bold red"),
+                    border_style="red",
+                    padding=(1, 2),
+                )
+            )
+        else:
+            console.print(
+                Panel(
+                    Text(f"✓ {result.get('message', 'Resume completed')}", style="bold green"),
+                    border_style="green",
+                    padding=(1, 2),
+                )
+            )
+
+        console.print()
+
+    except Exception as e:
+        console.print()
+        console.print(Panel(Text(f"✗ Error: {e}", style="bold red"), border_style="red", padding=(1, 2)))
+        console.print()
+
+    finally:
+        db.close()
+
+
+@cli.command()
 def version():
     """Show NOVA version"""
     console.print(Text("NOVA v0.2.0", style="bold cyan"))

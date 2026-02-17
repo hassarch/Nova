@@ -9,8 +9,10 @@ from app.agent.planner import Planner
 from app.agent.retry_engine import RetryEngine
 from app.config.settings import settings
 from app.core.policy.engine import PolicyEngine
+from app.core.recovery.resume_engine import ResumeEngine
 from app.database.models import ExecutionPlan, ExecutionResult, ExecutionStep, Prompt
 from app.database.models import Session as DBSession
+from app.database.models import WorkflowSubtask
 from app.observability.metrics_tracker import MetricsTracker
 from app.security.command_validator import CommandSecurityError, CommandValidator
 
@@ -25,6 +27,194 @@ class AgentController:
         self.dispatcher = ToolDispatcher(use_sandbox=settings.USE_SANDBOX)
         self.retry_engine = RetryEngine(db, self.dispatcher)  # ✅ Required for failure handling
         self.policy_engine = PolicyEngine()
+        self.resume_engine = ResumeEngine(db)  # ✅ Resume capability
+
+    def _store_subtasks(self, db_session: DBSession, structured_plan: dict):
+        """Store all subtasks in DB before execution (STEP 2)"""
+        for index, subtask in enumerate(structured_plan.get("subtasks", [])):
+            db_subtask = WorkflowSubtask(
+                session_id=db_session.id, objective=subtask.get("objective", ""), order_index=index, status="pending"
+            )
+            self.db.add(db_subtask)
+        self.db.commit()
+
+    def _update_subtask_status(self, db_session: DBSession, subtask_index: int, status: str):
+        """Update subtask status in DB (STEP 3)"""
+        subtask = self.db.query(WorkflowSubtask).filter_by(session_id=db_session.id, order_index=subtask_index).first()
+        if subtask:
+            subtask.status = status
+            self.db.commit()
+
+    def resume(self, session_id: int):
+        """Resume a failed workflow from the last incomplete subtask (STEP 4)"""
+        # STEP 6: Safety checks
+        safety_check = self.resume_engine._check_resume_safety(session_id)
+        if not safety_check["safe"]:
+            return {"error": f"Resume blocked: {safety_check['reason']}"}
+
+        # Get resume point
+        resume_point = self.resume_engine.get_resume_point(session_id)
+        if not resume_point:
+            return {"message": "All subtasks already completed"}
+
+        # Load execution plan
+        structured_plan = self.resume_engine.get_execution_plan(session_id)
+        if not structured_plan:
+            return {"error": "Execution plan not found"}
+
+        # Load session
+        db_session = self.db.query(DBSession).filter_by(id=session_id).first()
+        if not db_session:
+            return {"error": f"Session {session_id} not found"}
+
+        # Initialize metrics
+        metrics = MetricsTracker(session_id=session_id, max_operations=4)
+
+        print(f"🔄 Resuming from: {resume_point['objective']}")
+        print(f"   Status: {resume_point['status']}")
+
+        # Execute from resume point onwards (STEP 5: Idempotent)
+        subtasks = self.db.query(WorkflowSubtask).filter_by(session_id=session_id).order_by(WorkflowSubtask.order_index).all()
+
+        for subtask_index in range(resume_point["order_index"], len(subtasks)):
+            subtask_obj = subtasks[subtask_index]
+
+            # Skip if already completed (idempotent)
+            if subtask_obj.status == "completed":
+                continue
+
+            # Find corresponding subtask in structured plan
+            if subtask_index < len(structured_plan.get("subtasks", [])):
+                subtask_plan = structured_plan["subtasks"][subtask_index]
+
+                # Mark as running
+                self.resume_engine.mark_subtask_running(subtask_obj.id)
+
+                # Execute steps
+                subtask_failed = False
+                for step in subtask_plan.get("steps", []):
+                    # Policy evaluation
+                    decision = self.policy_engine.evaluate(step)
+                    if not decision.allowed:
+                        print(f"❌ Policy blocked step: {decision.reason}")
+                        subtask_failed = True
+                        break
+
+                    # Security validation
+                    try:
+                        CommandValidator.validate(step.get("command"))
+                    except CommandSecurityError:
+                        subtask_failed = True
+                        break
+
+                    # Execute step
+                    result = self.dispatcher.dispatch(step, metrics)
+                    if result and result.return_code != 0:
+                        subtask_failed = True
+                        break
+
+                # Update subtask status
+                if subtask_failed:
+                    self.resume_engine.mark_subtask_failed(subtask_obj.id)
+                    break
+                else:
+                    self.resume_engine.mark_subtask_completed(subtask_obj.id)
+
+        # Persist final metrics
+        db_session.read_count = metrics.read_count
+        db_session.write_count = metrics.write_count
+        db_session.retry_count = metrics.retry_count
+        db_session.risk_score = metrics.risk_score
+        self.db.commit()
+
+        return {"message": f"Resume completed from subtask {resume_point['order_index']}"}
+
+    def _execute_subtasks(self, db_session: DBSession, db_plan: ExecutionPlan, structured_plan: dict, metrics: MetricsTracker):
+        """Execute subtasks with state tracking (STEP 3)"""
+        for subtask_index, subtask in enumerate(structured_plan.get("subtasks", [])):
+            # Mark subtask as running
+            self._update_subtask_status(db_session, subtask_index, "running")
+
+            subtask_failed = False
+            for step_index, step in enumerate(subtask.get("steps", [])):
+                db_step = ExecutionStep(
+                    plan_id=db_plan.id,
+                    step_order=step_index + 1,
+                    tool=step.get("tool"),
+                    action=step.get("action"),
+                    command=step.get("command"),
+                    file_path=step.get("file_path"),
+                    content=step.get("content"),
+                )
+
+                self.db.add(db_step)
+                self.db.commit()
+                self.db.refresh(db_step)
+
+                # 🔐 Policy evaluation
+                decision = self.policy_engine.evaluate(step)
+                if not decision.allowed:
+                    print(f"❌ Policy blocked step: {decision.reason}")
+                    subtask_failed = True
+                    break
+
+                if decision.risk_level == "high":
+                    print(f"⚠️  High-risk step detected: {decision.reason}")
+
+                # 🔐 Validate command security
+                try:
+                    CommandValidator.validate(step.get("command"))
+                except CommandSecurityError:
+                    subtask_failed = True
+                    break
+
+                result = self.dispatcher.dispatch(step, metrics)
+                # 🚀 Execute step
+
+                if result:
+                    db_result = ExecutionResult(
+                        step_id=db_step.id, stdout=result.stdout, stderr=result.stderr, return_code=result.return_code
+                    )
+
+                    self.db.add(db_result)
+                    self.db.commit()
+
+                    # HIGH RISK CHECK
+                    if metrics.should_block():
+                        print(f"⚠ HIGH RISK: Operation limit exceeded (max {metrics.max_operations})")
+                        print(f"Risk Score: {metrics.risk_score}")
+                        print("Execution stopped due to risk threshold.")
+
+                        metrics.track_retry()
+
+                        # Save metrics before rerun
+                        db_session.read_count = metrics.read_count
+                        db_session.write_count = metrics.write_count
+                        db_session.retry_count = metrics.retry_count
+                        db_session.risk_score = metrics.risk_score
+                        self.db.commit()
+
+                        # Mark subtask as failed
+                        self._update_subtask_status(db_session, subtask_index, "failed")
+                        return {"status": "blocked"}
+
+                    # Normal failure handling
+                    # 🔁 Handle failure if needed
+                    if result.return_code != 0:
+                        self.retry_engine.handle_failure(
+                            db_step=db_step,
+                            original_step=step,
+                            error_message=result.stderr,
+                            session_id=db_session.session_id,
+                        )
+                        subtask_failed = True
+                        break
+
+            # Mark subtask as completed or failed
+            if subtask_failed:
+                self._update_subtask_status(db_session, subtask_index, "failed")
+            else:
+                self._update_subtask_status(db_session, subtask_index, "completed")
 
     def run(self, user_prompt: str):
         adaptive_limit = 4
@@ -152,6 +342,9 @@ class AgentController:
         self.db.commit()
         self.db.refresh(db_plan)
 
+        # 🧠 STEP 2: Store subtasks before execution
+        self._store_subtasks(db_session, structured_plan)
+
         # 6️⃣ Execute each step (or simulate/plan-only)
         if self.plan_only:
             # In plan-only mode, evaluate risk for each step but don't execute
@@ -208,74 +401,10 @@ class AgentController:
         for subtask in structured_plan.get("subtasks", []):
             all_steps.extend(subtask.get("steps", []))
 
-        for index, step in enumerate(all_steps):
-            db_step = ExecutionStep(
-                plan_id=db_plan.id,
-                step_order=index + 1,
-                tool=step.get("tool"),
-                action=step.get("action"),
-                command=step.get("command"),
-                file_path=step.get("file_path"),
-                content=step.get("content"),
-            )
-
-            self.db.add(db_step)
-            self.db.commit()
-            self.db.refresh(db_step)
-
-            # 🔐 Policy evaluation
-            decision = self.policy_engine.evaluate(step)
-            if not decision.allowed:
-                print(f"❌ Policy blocked step: {decision.reason}")
-                continue
-
-            if decision.risk_level == "high":
-                print(f"⚠️  High-risk step detected: {decision.reason}")
-
-            # 🔐 Validate command security
-            try:
-                CommandValidator.validate(step.get("command"))
-            except CommandSecurityError:
-                # Skip unsafe command
-                continue
-
-            result = self.dispatcher.dispatch(step, metrics)
-            # 🚀 Execute step
-
-            if result:
-                db_result = ExecutionResult(
-                    step_id=db_step.id, stdout=result.stdout, stderr=result.stderr, return_code=result.return_code
-                )
-
-                self.db.add(db_result)
-                self.db.commit()
-
-                # HIGH RISK CHECK
-                if metrics.should_block():
-                    print(f"⚠ HIGH RISK: Operation limit exceeded (max {metrics.max_operations})")
-                    print(f"Risk Score: {metrics.risk_score}")
-                    print("Execution stopped due to risk threshold.")
-
-                    metrics.track_retry()
-
-                    # Save metrics before rerun
-                    db_session.read_count = metrics.read_count
-                    db_session.write_count = metrics.write_count
-                    db_session.retry_count = metrics.retry_count
-                    db_session.risk_score = metrics.risk_score
-                    self.db.commit()
-
-                    return {"status": "blocked"}
-
-                # Normal failure handling
-                # 🔁 Handle failure if needed
-                if result.return_code != 0:
-                    self.retry_engine.handle_failure(
-                        db_step=db_step,
-                        original_step=step,
-                        error_message=result.stderr,
-                        session_id=session_uuid,  # Required for context-aware retry
-                    )
+        # 🧠 STEP 3: Execute subtasks with state tracking
+        result = self._execute_subtasks(db_session, db_plan, structured_plan, metrics)
+        if result and result.get("status") == "blocked":
+            return result
         # Persist final metrics
         db_session.read_count = metrics.read_count
         db_session.write_count = metrics.write_count

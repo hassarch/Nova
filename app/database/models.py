@@ -19,6 +19,7 @@ class Session(Base):
     risk_score = Column(Integer, default=0)
 
     prompts = relationship("Prompt", back_populates="session")
+    subtasks = relationship("WorkflowSubtask", back_populates="session")
 
 
 class Prompt(Base):
@@ -85,3 +86,17 @@ class Retry(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     step = relationship("ExecutionStep", back_populates="retries")
+
+
+class WorkflowSubtask(Base):
+    __tablename__ = "workflow_subtasks"
+
+    id = Column(Integer, primary_key=True)
+    session_id = Column(Integer, ForeignKey("sessions.id"))
+    objective = Column(String, nullable=False)
+    order_index = Column(Integer, nullable=False)
+    status = Column(String, default="pending")  # pending | running | completed | failed
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    session = relationship("Session", back_populates="subtasks")
