@@ -431,6 +431,7 @@ def version():
 @click.option("--limit", default=5, help="Number of sessions to show")
 def session(limit):
     """View session history and metrics"""
+    from sqlalchemy.exc import ProgrammingError
 
     console.print()
     console.print(Panel(Text(" Session History", style="bold cyan"), border_style="cyan", padding=(1, 2)))
@@ -438,7 +439,12 @@ def session(limit):
 
     try:
         db = SessionLocal()
-        sessions = db.query(DBSession).order_by(DBSession.id.desc()).limit(limit).all()
+        try:
+            sessions = db.query(DBSession).order_by(DBSession.id.desc()).limit(limit).all()
+        except ProgrammingError:
+            console.print("[dim]No sessions found[/dim]")
+            db.close()
+            return
 
         if not sessions:
             console.print("[dim]No sessions found[/dim]")
