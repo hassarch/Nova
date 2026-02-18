@@ -1,3 +1,5 @@
+from typing import Union
+
 from app.execution.docker_execution import DockerExecutor
 from app.execution.native_executor import NativeExecutor
 from app.tools.filesystem_tool import FileSystemTool
@@ -5,6 +7,7 @@ from app.tools.filesystem_tool import FileSystemTool
 
 class ToolDispatcher:
     def __init__(self, use_sandbox: bool = False):
+        self.executor: Union[DockerExecutor, NativeExecutor]
         if use_sandbox:
             self.executor = DockerExecutor()
         else:

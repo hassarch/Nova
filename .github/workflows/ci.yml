@@ -39,7 +39,6 @@ jobs:
 
       - name: Run MyPy (type checking)
         run: mypy app --ignore-missing-imports
-        continue-on-error: false
 
   test:
     name: Unit Tests

@@ -90,7 +90,7 @@ class ResumeEngine:
             plan_json = db_plan.plan_json
             if isinstance(plan_json, str):
                 return json.loads(plan_json)
-            return plan_json
+            return plan_json  # type: ignore
         except ProgrammingError:
             return None
 
@@ -99,7 +99,7 @@ class ResumeEngine:
         try:
             subtask = self.db.query(WorkflowSubtask).filter_by(id=subtask_id).first()
             if subtask:
-                subtask.status = "running"
+                subtask.status = "running"  # type: ignore
                 self.db.commit()
         except ProgrammingError:
             pass
@@ -109,7 +109,7 @@ class ResumeEngine:
         try:
             subtask = self.db.query(WorkflowSubtask).filter_by(id=subtask_id).first()
             if subtask:
-                subtask.status = "completed"
+                subtask.status = "completed"  # type: ignore
                 self.db.commit()
         except ProgrammingError:
             pass
@@ -119,7 +119,7 @@ class ResumeEngine:
         try:
             subtask = self.db.query(WorkflowSubtask).filter_by(id=subtask_id).first()
             if subtask:
-                subtask.status = "failed"
+                subtask.status = "failed"  # type: ignore
                 self.db.commit()
         except ProgrammingError:
             pass

@@ -1,5 +1,5 @@
 import re
-from typing import Dict
+from typing import Any, Dict, Optional
 
 # Risk scoring rules
 HIGH_RISK_COMMANDS = [
@@ -20,7 +20,7 @@ CRITICAL_PATTERNS = [
 ]
 
 
-def evaluate_command(command: str) -> Dict:
+def evaluate_command(command: Optional[str]) -> Dict[str, Any]:
     if not command:
         return {"risk": "low", "reason": None}
 

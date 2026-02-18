@@ -42,7 +42,7 @@ class AgentController:
         """Update subtask status in DB (STEP 3)"""
         subtask = self.db.query(WorkflowSubtask).filter_by(session_id=db_session.id, order_index=subtask_index).first()
         if subtask:
-            subtask.status = status
+            subtask.status = status  # type: ignore
             self.db.commit()
 
     def resume(self, session_id: int):
@@ -68,7 +68,7 @@ class AgentController:
             return {"error": f"Session {session_id} not found"}
 
         # Initialize metrics
-        metrics = MetricsTracker(session_id=session_id, max_operations=4)
+        metrics = MetricsTracker(session_id=int(db_session.id), max_operations=4)
 
         print(f"🔄 Resuming from: {resume_point['objective']}")
         print(f"   Status: {resume_point['status']}")
@@ -88,7 +88,7 @@ class AgentController:
                 subtask_plan = structured_plan["subtasks"][subtask_index]
 
                 # Mark as running
-                self.resume_engine.mark_subtask_running(subtask_obj.id)
+                self.resume_engine.mark_subtask_running(int(subtask_obj.id))
 
                 # Execute steps
                 subtask_failed = False
@@ -115,16 +115,16 @@ class AgentController:
 
                 # Update subtask status
                 if subtask_failed:
-                    self.resume_engine.mark_subtask_failed(subtask_obj.id)
+                    self.resume_engine.mark_subtask_failed(int(subtask_obj.id))
                     break
                 else:
-                    self.resume_engine.mark_subtask_completed(subtask_obj.id)
+                    self.resume_engine.mark_subtask_completed(int(subtask_obj.id))
 
         # Persist final metrics
-        db_session.read_count = metrics.read_count
-        db_session.write_count = metrics.write_count
-        db_session.retry_count = metrics.retry_count
-        db_session.risk_score = metrics.risk_score
+        db_session.read_count = metrics.read_count  # type: ignore
+        db_session.write_count = metrics.write_count  # type: ignore
+        db_session.retry_count = metrics.retry_count  # type: ignore
+        db_session.risk_score = metrics.risk_score  # type: ignore
         self.db.commit()
 
         return {"message": f"Resume completed from subtask {resume_point['order_index']}"}
@@ -188,10 +188,10 @@ class AgentController:
                         metrics.track_retry()
 
                         # Save metrics before rerun
-                        db_session.read_count = metrics.read_count
-                        db_session.write_count = metrics.write_count
-                        db_session.retry_count = metrics.retry_count
-                        db_session.risk_score = metrics.risk_score
+                        db_session.read_count = metrics.read_count  # type: ignore
+                        db_session.write_count = metrics.write_count  # type: ignore
+                        db_session.retry_count = metrics.retry_count  # type: ignore
+                        db_session.risk_score = metrics.risk_score  # type: ignore
                         self.db.commit()
 
                         # Mark subtask as failed
@@ -249,7 +249,7 @@ class AgentController:
         self.db.refresh(db_session)
 
         # Initialize metrics tracker
-        metrics = MetricsTracker(session_id=db_session.id, max_operations=adaptive_limit)
+        metrics = MetricsTracker(session_id=int(db_session.id), max_operations=adaptive_limit)
 
         # 2️⃣ Save prompt
         db_prompt = Prompt(session_id=db_session.id, content=user_prompt)
@@ -415,10 +415,10 @@ class AgentController:
         if result and result.get("status") == "blocked":
             return result
         # Persist final metrics
-        db_session.read_count = metrics.read_count
-        db_session.write_count = metrics.write_count
-        db_session.retry_count = metrics.retry_count
-        db_session.risk_score = metrics.risk_score
+        db_session.read_count = metrics.read_count  # type: ignore
+        db_session.write_count = metrics.write_count  # type: ignore
+        db_session.retry_count = metrics.retry_count  # type: ignore
+        db_session.risk_score = metrics.risk_score  # type: ignore
         self.db.commit()
 
         # Return the structured plan with flattened steps
