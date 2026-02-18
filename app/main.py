@@ -65,6 +65,7 @@ def cli():
 @click.option("--plan-only", is_flag=True, help="Show plan only (skip policy evaluation)")
 def run(prompt, simulate, plan_only):
     """Execute a task with NOVA"""
+    from sqlalchemy.exc import ProgrammingError
 
     console.print()
     console.print(
@@ -78,7 +79,23 @@ def run(prompt, simulate, plan_only):
         console.print(Text("Planning..." if plan_only else ("Simulating..." if simulate else "Executing..."), style="yellow"))
         console.print()
 
-        result = controller.run(prompt)
+        try:
+            result = controller.run(prompt)
+        except ProgrammingError:
+            console.print()
+            console.print(
+                Panel(
+                    Text(
+                        "✗ Error: Database tables not initialized. Run migrations first:\n\nalembic upgrade head",
+                        style="bold red",
+                    ),
+                    border_style="red",
+                    padding=(1, 2),
+                )
+            )
+            console.print()
+            db.close()
+            return
 
         # ------------------------------
         # 📋 PLAN-ONLY MODE DISPLAY
@@ -298,6 +315,8 @@ def run(prompt, simulate, plan_only):
     finally:
         # Show metrics for this session
         try:
+            from sqlalchemy.exc import ProgrammingError
+
             from app.database.models import Session as DBSession
 
             last_session = db.query(DBSession).order_by(DBSession.id.desc()).first()
@@ -318,7 +337,7 @@ def run(prompt, simulate, plan_only):
                     )
                 )
                 console.print()
-        except Exception:
+        except (Exception, ProgrammingError):
             pass
 
         db.close()
@@ -328,6 +347,7 @@ def run(prompt, simulate, plan_only):
 @click.argument("session_identifier")
 def resume(session_identifier):
     """Resume a failed workflow from the last incomplete subtask"""
+    from sqlalchemy.exc import ProgrammingError
 
     console.print()
     console.print(Panel(Text(f" Resume Session {session_identifier}", style="bold cyan"), border_style="cyan", padding=(1, 2)))
@@ -341,11 +361,23 @@ def resume(session_identifier):
         console.print()
 
         # Try to parse as integer first (database ID), then as session UUID
-        db_session = None
-        if session_identifier.isdigit():
-            db_session = db.query(DBSession).filter_by(id=int(session_identifier)).first()
-        else:
-            db_session = db.query(DBSession).filter_by(session_id=session_identifier).first()
+        try:
+            db_session = None
+            if session_identifier.isdigit():
+                db_session = db.query(DBSession).filter_by(id=int(session_identifier)).first()
+            else:
+                db_session = db.query(DBSession).filter_by(session_id=session_identifier).first()
+        except ProgrammingError:
+            console.print(
+                Panel(
+                    Text("✗ Error: Database tables not initialized. Run migrations first.", style="bold red"),
+                    border_style="red",
+                    padding=(1, 2),
+                )
+            )
+            console.print()
+            db.close()
+            return
 
         if not db_session:
             console.print(

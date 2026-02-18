@@ -217,17 +217,24 @@ class AgentController:
                 self._update_subtask_status(db_session, subtask_index, "completed")
 
     def run(self, user_prompt: str):
+        from sqlalchemy.exc import ProgrammingError
+
         adaptive_limit = 4
 
-        last_sessions = self.db.query(DBSession).order_by(DBSession.id.desc()).limit(3).all()
+        try:
+            last_sessions = self.db.query(DBSession).order_by(DBSession.id.desc()).limit(3).all()
 
-        if last_sessions:
-            avg_risk = sum((s.risk_score or 0) for s in last_sessions) / len(last_sessions)
+            if last_sessions:
+                avg_risk = sum((s.risk_score or 0) for s in last_sessions) / len(last_sessions)
 
-            if avg_risk > 8:
-                print("Suggestion: Your recent sessions show high risk behavior.")
-                print("System entering strict mode.")
-                adaptive_limit = 2
+                if avg_risk > 8:
+                    print("Suggestion: Your recent sessions show high risk behavior.")
+                    print("System entering strict mode.")
+                    adaptive_limit = 2
+        except ProgrammingError:
+            # Database tables not initialized, rollback and use default limit
+            self.db.rollback()
+            pass
 
         # Check for empty prompt
         if not user_prompt or not user_prompt.strip():
@@ -337,7 +344,9 @@ class AgentController:
         structured_plan = self.parser.validate(raw_plan)
 
         # 5️⃣ Save execution plan
-        db_plan = ExecutionPlan(prompt_id=db_prompt.id, plan_json=structured_plan)
+        import json
+
+        db_plan = ExecutionPlan(prompt_id=db_prompt.id, plan_json=json.dumps(structured_plan))
         self.db.add(db_plan)
         self.db.commit()
         self.db.refresh(db_plan)
