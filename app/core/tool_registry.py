@@ -1,6 +1,1 @@
-ALLOWED_TOOLS = {
-    "terminal",
-    "filesystem",
-    "git",
-    "docker"
-}
+ALLOWED_TOOLS = {"terminal", "filesystem", "git", "docker"}

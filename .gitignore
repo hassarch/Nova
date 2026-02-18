@@ -6,7 +6,7 @@ ENV/
 venv.bak/
 env.bak/
 
-
+nova_agent.egg-info/
 
 # Python
 __pycache__/
@@ -119,3 +119,5 @@ yarn-error.log
 *.key
 *.crt
 
+# CI/CD
+scripts/

@@ -1,12 +1,13 @@
-from app.execution.native_executor import NativeExecutor
+from typing import Union
+
 from app.execution.docker_execution import DockerExecutor
+from app.execution.native_executor import NativeExecutor
 from app.tools.filesystem_tool import FileSystemTool
 
 
 class ToolDispatcher:
-
     def __init__(self, use_sandbox: bool = False):
-
+        self.executor: Union[DockerExecutor, NativeExecutor]
         if use_sandbox:
             self.executor = DockerExecutor()
         else:
@@ -14,12 +15,11 @@ class ToolDispatcher:
 
         self.filesystem_tool = FileSystemTool()
 
-    def dispatch(self, step: dict):
-
+    def dispatch(self, step, metrics=None):
         if step["tool"] == "terminal" and step["command"]:
             return self.executor.execute(step["command"])
 
         if step["tool"] == "filesystem":
-            return self.filesystem_tool.execute(step)
+            return self.filesystem_tool.execute(step, metrics)
 
         return None

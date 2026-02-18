@@ -1,14 +1,7 @@
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    DateTime,
-    ForeignKey,
-    Text
-)
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
 from app.database.base import Base
 
 
@@ -19,7 +12,13 @@ class Session(Base):
     session_id = Column(String, unique=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
+    read_count = Column(Integer, default=0)
+    write_count = Column(Integer, default=0)
+    retry_count = Column(Integer, default=0)
+    risk_score = Column(Integer, default=0)
+
     prompts = relationship("Prompt", back_populates="session")
+    subtasks = relationship("WorkflowSubtask", back_populates="session")
 
 
 class Prompt(Base):
@@ -39,7 +38,7 @@ class ExecutionPlan(Base):
 
     id = Column(Integer, primary_key=True)
     prompt_id = Column(Integer, ForeignKey("prompts.id"))
-    plan_json = Column(JSONB, nullable=False)
+    plan_json = Column(Text, nullable=False)  # Use Text for SQLite compatibility
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     prompt = relationship("Prompt", back_populates="execution_plan")
@@ -81,8 +80,22 @@ class Retry(Base):
 
     id = Column(Integer, primary_key=True)
     step_id = Column(Integer, ForeignKey("execution_steps.id"))
-    retry_plan = Column(JSONB)
+    retry_plan = Column(Text)  # Use Text for SQLite compatibility
     retry_number = Column(Integer)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     step = relationship("ExecutionStep", back_populates="retries")
+
+
+class WorkflowSubtask(Base):
+    __tablename__ = "workflow_subtasks"
+
+    id = Column(Integer, primary_key=True)
+    session_id = Column(Integer, ForeignKey("sessions.id"))
+    objective = Column(String, nullable=False)
+    order_index = Column(Integer, nullable=False)
+    status = Column(String, default="pending")  # pending | running | completed | failed
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    session = relationship("Session", back_populates="subtasks")
