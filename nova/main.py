@@ -8,11 +8,15 @@ from rich.table import Table
 from rich.text import Text
 
 from nova.analytics.queries import get_failed_steps, get_recent_prompts, get_retry_stats, get_session_summary
+from nova.config.loader import load_config
 from nova.controller.controller import AgentController
 from nova.database.connection import SessionLocal
 from nova.database.models import Session as DBSession
 
 console = Console()
+
+# Load configuration on startup
+config = load_config()
 
 
 def ensure_db_initialized():
@@ -86,6 +90,23 @@ def show_diff_preview(file_path: str, new_content: str):
 def cli():
     """NOVA - AI Agent for task execution"""
     pass
+
+
+@cli.command()
+def init():
+    """Initialize NOVA configuration"""
+    from nova.config.loader import create_default_config
+
+    config_path = create_default_config()
+    console.print()
+    console.print(
+        Panel(
+            Text(f"✓ Configuration initialized\n\n{config_path}", style="bold green"),
+            border_style="green",
+            padding=(1, 2),
+        )
+    )
+    console.print()
 
 
 @cli.command()
