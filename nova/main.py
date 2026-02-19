@@ -1,5 +1,6 @@
 import difflib
 import os
+import sys
 
 import click
 from rich.console import Console
@@ -720,5 +721,28 @@ def main():
     cli()
 
 
+def safe_run():
+    """Wrap CLI execution with global error handling."""
+    try:
+        main()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Interrupted by user[/yellow]")
+        sys.exit(130)
+    except Exception as e:
+        logger.exception("Unhandled exception occurred")
+        console.print()
+        console.print(
+            Panel(
+                Text("NOVA encountered an unexpected error.", style="bold red"),
+                border_style="red",
+                padding=(1, 2),
+            )
+        )
+        console.print(f"[red]Error:[/red] {str(e)}")
+        console.print(f"\n[dim]Full details saved to: {log_file}[/dim]")
+        console.print()
+        sys.exit(1)
+
+
 if __name__ == "__main__":
-    main()
+    safe_run()
