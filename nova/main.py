@@ -110,6 +110,14 @@ def init():
 
 
 @cli.command()
+def doctor():
+    """Run environment diagnostics"""
+    from nova.system.doctor import run_doctor
+
+    run_doctor()
+
+
+@cli.command()
 @click.argument("prompt")
 @click.option("--simulate", is_flag=True, help="Run in simulation mode (no execution)")
 @click.option("--plan-only", is_flag=True, help="Show plan only (skip policy evaluation)")
