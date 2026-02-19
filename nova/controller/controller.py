@@ -1,3 +1,4 @@
+import logging
 import os
 import uuid
 
@@ -15,6 +16,8 @@ from nova.observability.metrics_tracker import MetricsTracker
 from nova.policy.engine import PolicyEngine
 from nova.recovery.resume_engine import ResumeEngine
 from nova.security.command_validator import CommandSecurityError, CommandValidator
+
+logger = logging.getLogger(__name__)
 
 
 class AgentController:
@@ -47,29 +50,36 @@ class AgentController:
 
     def resume(self, session_id: int):
         """Resume a failed workflow from the last incomplete subtask (STEP 4)"""
+        logger.info(f"Resuming session {session_id}")
+
         # STEP 6: Safety checks
         safety_check = self.resume_engine._check_resume_safety(session_id)
         if not safety_check["safe"]:
+            logger.warning(f"Resume blocked for session {session_id}: {safety_check['reason']}")
             return {"error": f"Resume blocked: {safety_check['reason']}"}
 
         # Get resume point
         resume_point = self.resume_engine.get_resume_point(session_id)
         if not resume_point:
+            logger.info(f"All subtasks already completed for session {session_id}")
             return {"message": "All subtasks already completed"}
 
         # Load execution plan
         structured_plan = self.resume_engine.get_execution_plan(session_id)
         if not structured_plan:
+            logger.error(f"Execution plan not found for session {session_id}")
             return {"error": "Execution plan not found"}
 
         # Load session
         db_session = self.db.query(DBSession).filter_by(id=session_id).first()
         if not db_session:
+            logger.error(f"Session {session_id} not found")
             return {"error": f"Session {session_id} not found"}
 
         # Initialize metrics
         metrics = MetricsTracker(session_id=int(db_session.id), max_operations=4)
 
+        logger.info(f"Resuming from: {resume_point['objective']}")
         print(f"🔄 Resuming from: {resume_point['objective']}")
         print(f"   Status: {resume_point['status']}")
 
@@ -81,6 +91,7 @@ class AgentController:
 
             # Skip if already completed (idempotent)
             if subtask_obj.status == "completed":
+                logger.debug(f"Skipping already completed subtask {subtask_index}")
                 continue
 
             # Find corresponding subtask in structured plan
@@ -96,6 +107,7 @@ class AgentController:
                     # Policy evaluation
                     decision = self.policy_engine.evaluate(step)
                     if not decision.allowed:
+                        logger.warning(f"Policy blocked step during resume: {decision.reason}")
                         print(f"❌ Policy blocked step: {decision.reason}")
                         subtask_failed = True
                         break
@@ -104,20 +116,25 @@ class AgentController:
                     try:
                         CommandValidator.validate(step.get("command"))
                     except CommandSecurityError:
+                        logger.error("Command security validation failed during resume")
                         subtask_failed = True
                         break
 
                     # Execute step
+                    logger.debug(f"Executing resumed step: {step.get('action')}")
                     result = self.dispatcher.dispatch(step, metrics)
                     if result and result.return_code != 0:
+                        logger.error(f"Resumed step failed: {result.stderr}")
                         subtask_failed = True
                         break
 
                 # Update subtask status
                 if subtask_failed:
+                    logger.warning(f"Subtask {subtask_index} failed during resume")
                     self.resume_engine.mark_subtask_failed(int(subtask_obj.id))
                     break
                 else:
+                    logger.info(f"Subtask {subtask_index} completed during resume")
                     self.resume_engine.mark_subtask_completed(int(subtask_obj.id))
 
         # Persist final metrics
@@ -127,6 +144,7 @@ class AgentController:
         db_session.risk_score = metrics.risk_score  # type: ignore
         self.db.commit()
 
+        logger.info(f"Resume completed from subtask {resume_point['order_index']}")
         return {"message": f"Resume completed from subtask {resume_point['order_index']}"}
 
     def _execute_subtasks(self, db_session: DBSession, db_plan: ExecutionPlan, structured_plan: dict, metrics: MetricsTracker):
@@ -154,20 +172,24 @@ class AgentController:
                 # 🔐 Policy evaluation
                 decision = self.policy_engine.evaluate(step)
                 if not decision.allowed:
+                    logger.warning(f"Policy blocked step: {step.get('action')} - {decision.reason}")
                     print(f"❌ Policy blocked step: {decision.reason}")
                     subtask_failed = True
                     break
 
                 if decision.risk_level == "high":
+                    logger.warning(f"High-risk step detected: {step.get('action')} - {decision.reason}")
                     print(f"⚠️  High-risk step detected: {decision.reason}")
 
                 # 🔐 Validate command security
                 try:
                     CommandValidator.validate(step.get("command"))
                 except CommandSecurityError:
+                    logger.error(f"Command security validation failed: {step.get('command')}")
                     subtask_failed = True
                     break
 
+                logger.debug(f"Executing step: {step.get('tool')} - {step.get('action')}")
                 result = self.dispatcher.dispatch(step, metrics)
                 # 🚀 Execute step
 
@@ -181,7 +203,11 @@ class AgentController:
 
                     # HIGH RISK CHECK
                     if metrics.should_block():
-                        print(f"⚠ HIGH RISK: Operation limit exceeded (max {metrics.max_operations})")
+                        logger.error(
+                            f"Operation limit exceeded. Risk score: {metrics.risk_score}, "
+                            f"Max operations: {metrics.max_operations}"
+                        )
+                        print(f"⚠ HIGH RISK: Operation limit exceeded " f"(max {metrics.max_operations})")
                         print(f"Risk Score: {metrics.risk_score}")
                         print("Execution stopped due to risk threshold.")
 
@@ -201,6 +227,7 @@ class AgentController:
                     # Normal failure handling
                     # 🔁 Handle failure if needed
                     if result.return_code != 0:
+                        logger.error(f"Step failed with return code {result.return_code}: {result.stderr}")
                         self.retry_engine.handle_failure(
                             db_step=db_step,
                             original_step=step,
@@ -209,6 +236,8 @@ class AgentController:
                         )
                         subtask_failed = True
                         break
+                    else:
+                        logger.info(f"Step completed successfully: {step.get('action')}")
 
             # Mark subtask as completed or failed
             if subtask_failed:
@@ -219,6 +248,8 @@ class AgentController:
     def run(self, user_prompt: str):
         from sqlalchemy.exc import ProgrammingError
 
+        logger.info(f"Starting execution with prompt: {user_prompt[:100]}")
+
         adaptive_limit = 4
 
         try:
@@ -228,6 +259,7 @@ class AgentController:
                 avg_risk = sum((s.risk_score or 0) for s in last_sessions) / len(last_sessions)
 
                 if avg_risk > 8:
+                    logger.warning(f"High risk detected in recent sessions (avg: {avg_risk}). Entering strict mode.")
                     print("Suggestion: Your recent sessions show high risk behavior.")
                     print("System entering strict mode.")
                     adaptive_limit = 2
@@ -238,6 +270,7 @@ class AgentController:
 
         # Check for empty prompt
         if not user_prompt or not user_prompt.strip():
+            logger.warning("Empty prompt provided")
             return {"task_id": str(uuid.uuid4()), "message": "Please provide a task description", "steps": []}
 
         # 1️⃣ Create new session

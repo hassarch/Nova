@@ -12,11 +12,16 @@ from nova.config.loader import load_config
 from nova.controller.controller import AgentController
 from nova.database.connection import SessionLocal
 from nova.database.models import Session as DBSession
+from nova.logging.logger import create_session_logger
 
 console = Console()
 
 # Load configuration on startup
 config = load_config()
+
+# Initialize session logger
+logger, log_file = create_session_logger()
+logger.info("NOVA session started")
 
 
 def ensure_db_initialized():
@@ -114,7 +119,9 @@ def doctor():
     """Run environment diagnostics"""
     from nova.system.doctor import run_doctor
 
+    logger.info("Running environment diagnostics")
     run_doctor()
+    logger.info("Diagnostics completed")
 
 
 @cli.command()
@@ -127,6 +134,9 @@ def run(prompt, simulate, plan_only):
 
     # Ensure database is initialized
     ensure_db_initialized()
+
+    logger.info(f"Executing prompt: {prompt}")
+    logger.info(f"Mode - Simulate: {simulate}, Plan Only: {plan_only}")
 
     console.print()
     console.print(
@@ -367,8 +377,10 @@ def run(prompt, simulate, plan_only):
 
         console.print(Panel(Text(" Task completed successfully", style="bold green"), border_style="green", padding=(1, 2)))
         console.print()
+        logger.info("Task completed successfully")
 
     except Exception as e:
+        logger.error(f"Task execution failed: {e}", exc_info=True)
         console.print()
         console.print(Panel(Text(f"✗ Error: {e}", style="bold red"), border_style="red", padding=(1, 2)))
         console.print()
@@ -413,6 +425,8 @@ def resume(session_identifier):
     # Ensure database is initialized
     ensure_db_initialized()
 
+    logger.info(f"Resuming session: {session_identifier}")
+
     console.print()
     console.print(Panel(Text(f" Resume Session {session_identifier}", style="bold cyan"), border_style="cyan", padding=(1, 2)))
     console.print()
@@ -432,6 +446,7 @@ def resume(session_identifier):
             else:
                 db_session = db.query(DBSession).filter_by(session_id=session_identifier).first()
         except ProgrammingError:
+            logger.error("Database tables not initialized")
             console.print(
                 Panel(
                     Text("✗ Error: Database tables not initialized. Run migrations first.", style="bold red"),
@@ -444,6 +459,7 @@ def resume(session_identifier):
             return
 
         if not db_session:
+            logger.warning(f"Session not found: {session_identifier}")
             console.print(
                 Panel(
                     Text(f"✗ Error: Session '{session_identifier}' not found", style="bold red"),
@@ -458,6 +474,7 @@ def resume(session_identifier):
         result = controller.resume(db_session.id)
 
         if "error" in result:
+            logger.error(f"Resume failed: {result['error']}")
             console.print(
                 Panel(
                     Text(f"✗ Error: {result['error']}", style="bold red"),
@@ -466,6 +483,7 @@ def resume(session_identifier):
                 )
             )
         else:
+            logger.info(f"Resume completed: {result.get('message', 'Success')}")
             console.print(
                 Panel(
                     Text(f"✓ {result.get('message', 'Resume completed')}", style="bold green"),
@@ -477,6 +495,7 @@ def resume(session_identifier):
         console.print()
 
     except Exception as e:
+        logger.error(f"Resume failed with exception: {e}", exc_info=True)
         console.print()
         console.print(Panel(Text(f"✗ Error: {e}", style="bold red"), border_style="red", padding=(1, 2)))
         console.print()
