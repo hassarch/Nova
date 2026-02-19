@@ -46,10 +46,10 @@ dev = [
 ]
 
 [project.scripts]
-nova = "app.main:main"
+nova = "nova.main:main"
 
 [tool.setuptools]
-packages = ["app"]
+packages = ["nova"]
 
 [tool.black]
 line-length = 127

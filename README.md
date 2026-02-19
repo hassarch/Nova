@@ -1,6 +1,7 @@
 # NOVA – Neural Orchestrated Virtual Assistant
 
-[![Dev CI Pipeline](https://github.com/YOUR_USERNAME/nova-agent/actions/workflows/dev-ci.yml/badge.svg?branch=dev)](https://github.com/YOUR_USERNAME/nova-agent/actions/workflows/dev-ci.yml)
+[![Main CI Pipeline](https://github.com/hassarch/nova-agent/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/hassarch/nova-agent/actions/workflows/ci.yml)
+[![Dev CI Pipeline](https://github.com/hassarch/nova-agent/actions/workflows/dev-ci.yml/badge.svg?branch=dev)](https://github.com/hassarch/nova-agent/actions/workflows/dev-ci.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -77,6 +78,42 @@ Executor: Runs inside native or Docker sandbox
 Database: Stores results, metrics & retry history
 ```
 
+---
+
+## Quick Start
+
+### Installation
+
+```bash
+# Clone the repository
+git clone https://github.com/hassarch/nova-agent.git
+cd nova-agent
+
+# Install in development mode
+pip install -e ".[dev]"
+
+# Run migrations
+python -m alembic upgrade head
+```
+
+### Basic Usage
+
+```bash
+# Execute a task
+nova run "create a hello world Python script"
+
+# Simulate execution (no changes made)
+nova run "create a hello world Python script" --simulate
+
+# Show plan only (skip policy checks)
+nova run "create a hello world Python script" --plan-only
+
+# View session history
+nova session
+
+# Resume a failed workflow
+nova resume <session_id>
+```
 
 ---
 
@@ -84,7 +121,7 @@ Database: Stores results, metrics & retry history
 
 ### 🚀 Normal Execution
 ```bash
-./nova run "create test.py"
+nova run "create test.py"
 ```
 - ✓ Executes the plan
 - ✓ Applies policy checks
@@ -93,7 +130,7 @@ Database: Stores results, metrics & retry history
 
 ### 🧪 Simulation Mode
 ```bash
-./nova run "create test.py" --simulate
+nova run "create test.py" --simulate
 ```
 - ✓ Shows risk levels (GREEN/YELLOW/RED)
 - ✓ Displays affected files
@@ -103,7 +140,7 @@ Database: Stores results, metrics & retry history
 
 ### 📋 Plan-Only Mode
 ```bash
-./nova run "create test.py" --plan-only
+nova run "create test.py" --plan-only
 ```
 - ✓ Shows execution plan
 - ✓ Shows diff previews
@@ -126,6 +163,7 @@ risk_score = (read_count × 1) + (write_count × 2) + (retry_count × 3)
 - **Default**: 4 operations per session
 - **Strict Mode**: 2 operations (triggered when avg risk > 8 in last 3 sessions)
 
+---
 
 ## Safety Model
 
@@ -160,8 +198,6 @@ sessions
 └── risk_score (calculated risk)
 ```
 
-
-
 ### Run Migrations
 
 ```bash
@@ -172,19 +208,72 @@ python -m alembic upgrade head
 
 ## Architecture
 
+The codebase follows a professional Python package structure:
+
 ```
-app/
-├── agent/              # Planning, retry engine, orchestration
-├── execution/          # Native & Docker executors
-├── security/           # Command validation layer
-├── tools/              # Filesystem & tool-specific logic
-├── database/           # PostgreSQL models & connection
-├── config/             # Environment configuration
-├── core/
-│   ├── policy/         # Risk evaluation & policy engine
-│   └── context/        # Context collection & formatting
-├── observability/      # Metrics tracking
-└── main.py             # CLI entrypoint
+nova/                          ← Repository root
+├── nova/                      ← Python package
+│   ├── controller/            # Agent orchestration & execution
+│   ├── planner/               # Task planning & decomposition
+│   ├── policy/                # Security & policy enforcement
+│   ├── recovery/              # Failure recovery & resumption
+│   ├── analytics/             # Metrics & analysis
+│   ├── memory/                # Context & state management
+│   ├── database/              # Data persistence
+│   ├── execution/             # Command execution strategies
+│   ├── security/              # Input validation
+│   ├── tools/                 # Tool implementations
+│   ├── observability/         # Metrics tracking
+│   ├── config/                # Configuration
+│   ├── utils/                 # Shared utilities
+│   └── main.py                # CLI entry point
+├── tests/                     # Test suite
+├── migrations/                # Database migrations
+└── scripts/                   # Utility scripts
+```
+
+For detailed structure documentation, see [STRUCTURE.md](STRUCTURE.md).
+
+---
+
+## Development
+
+### Code Quality
+
+Run all checks:
+```bash
+bash scripts/run-ci-checks.sh
+```
+
+Individual checks:
+```bash
+# Format code
+black nova tests
+
+# Sort imports
+isort nova tests
+
+# Lint
+flake8 nova tests --max-line-length=127 --extend-ignore=E203,W503
+
+# Type checking
+mypy nova --ignore-missing-imports
+
+# Security scanning
+bandit -r nova -ll
+```
+
+### Testing
+
+```bash
+# Run all tests
+pytest tests -v
+
+# Run unit tests only
+pytest tests -m unit -v
+
+# With coverage
+pytest tests -v --cov=nova --cov-report=html
 ```
 
 ---
@@ -205,7 +294,7 @@ app/
 
 ## Version
 
-**v0.1.1** – Enhanced with metrics, risk management, and preview modes
+**v0.1.0** – Professional package structure with enhanced CI/CD
 
 Includes:
 - Structured planning
@@ -213,11 +302,15 @@ Includes:
 - Native + Docker execution
 - Self-healing retry loop
 - Persistent memory layer
-- **NEW: Metrics tracking & risk scoring**
-- **NEW: Adaptive operation limits**
-- **NEW: Simulation mode with risk assessment**
-- **NEW: Plan-only mode**
-- **NEW: Diff preview for modifications**
+- Metrics tracking & risk scoring
+- Adaptive operation limits
+- Simulation mode with risk assessment
+- Plan-only mode
+- Diff preview for modifications
+- **NEW: Professional nova/ package structure**
+- **NEW: Enhanced CI/CD pipelines**
+- **NEW: Type checking with MyPy**
+- **NEW: Security scanning with Bandit**
 
 ---
 
@@ -229,3 +322,8 @@ This is an experimental project. Contributions welcome for:
 - Performance optimizations
 - Documentation improvements
 
+---
+
+## License
+
+MIT License - see LICENSE file for details
