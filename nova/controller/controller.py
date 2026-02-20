@@ -196,7 +196,7 @@ class AgentController:
                 if not decision.allowed:
                     logger.warning(f"Policy blocked step: {step.get('action')} - {decision.reason}")
                     print(f"❌ Policy blocked step: {decision.reason}")
-                    workflow_step.status = "failed"
+                    workflow_step.status = "failed"  # type: ignore
                     self.db.commit()
                     subtask_failed = True
                     break
@@ -210,14 +210,14 @@ class AgentController:
                     CommandValidator.validate(step.get("command"))
                 except CommandSecurityError:
                     logger.error(f"Command security validation failed: {step.get('command')}")
-                    workflow_step.status = "failed"
+                    workflow_step.status = "failed"  # type: ignore
                     self.db.commit()
                     subtask_failed = True
                     break
 
                 # Mark step as running
-                workflow_step.status = "running"
-                workflow_step.started_at = datetime.utcnow()
+                workflow_step.status = "running"  # type: ignore
+                workflow_step.started_at = datetime.utcnow()  # type: ignore
                 self.db.commit()
 
                 logger.debug(f"Executing step: {step.get('tool')} - {step.get('action')}")
@@ -236,8 +236,8 @@ class AgentController:
                     self.db.commit()
 
                     # Mark step as completed
-                    workflow_step.finished_at = datetime.utcnow()
-                    workflow_step.status = "completed"
+                    workflow_step.finished_at = datetime.utcnow()  # type: ignore
+                    workflow_step.status = "completed"  # type: ignore
                     self.db.commit()
 
                     # HIGH RISK CHECK
@@ -267,7 +267,7 @@ class AgentController:
                     # 🔁 Handle failure if needed
                     if result.return_code != 0:
                         logger.error(f"Step failed with return code {result.return_code}: " f"{result.stderr}")
-                        workflow_step.status = "failed"
+                        workflow_step.status = "failed"  # type: ignore
                         self.db.commit()
                         self.retry_engine.handle_failure(
                             db_step=db_step,
