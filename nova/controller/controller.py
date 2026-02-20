@@ -1,6 +1,7 @@
 import logging
 import os
 import uuid
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -11,7 +12,7 @@ from nova.controller.planner import Planner
 from nova.controller.retry_engine import RetryEngine
 from nova.database.models import ExecutionPlan, ExecutionResult, ExecutionStep, Prompt
 from nova.database.models import Session as DBSession
-from nova.database.models import WorkflowSubtask
+from nova.database.models import WorkflowStep, WorkflowSubtask
 from nova.observability.metrics_tracker import MetricsTracker
 from nova.policy.engine import PolicyEngine
 from nova.recovery.resume_engine import ResumeEngine
@@ -147,14 +148,35 @@ class AgentController:
         logger.info(f"Resume completed from subtask {resume_point['order_index']}")
         return {"message": f"Resume completed from subtask {resume_point['order_index']}"}
 
-    def _execute_subtasks(self, db_session: DBSession, db_plan: ExecutionPlan, structured_plan: dict, metrics: MetricsTracker):
+    def _execute_subtasks(
+        self,
+        db_session: DBSession,
+        db_plan: ExecutionPlan,
+        structured_plan: dict,
+        metrics: MetricsTracker,
+    ):
         """Execute subtasks with state tracking (STEP 3)"""
         for subtask_index, subtask in enumerate(structured_plan.get("subtasks", [])):
             # Mark subtask as running
             self._update_subtask_status(db_session, subtask_index, "running")
 
+            # Get or create subtask record
+            db_subtask = self.db.query(WorkflowSubtask).filter_by(session_id=db_session.id, order_index=subtask_index).first()
+
             subtask_failed = False
             for step_index, step in enumerate(subtask.get("steps", [])):
+                # Create WorkflowStep record for tracking
+                workflow_step = WorkflowStep(
+                    session_id=db_session.id,
+                    subtask_id=db_subtask.id if db_subtask else None,
+                    step_index=step_index,
+                    command=step.get("command"),
+                    status="pending",
+                )
+                self.db.add(workflow_step)
+                self.db.commit()
+                self.db.refresh(workflow_step)
+
                 db_step = ExecutionStep(
                     plan_id=db_plan.id,
                     step_order=step_index + 1,
@@ -174,11 +196,13 @@ class AgentController:
                 if not decision.allowed:
                     logger.warning(f"Policy blocked step: {step.get('action')} - {decision.reason}")
                     print(f"❌ Policy blocked step: {decision.reason}")
+                    workflow_step.status = "failed"
+                    self.db.commit()
                     subtask_failed = True
                     break
 
                 if decision.risk_level == "high":
-                    logger.warning(f"High-risk step detected: {step.get('action')} - {decision.reason}")
+                    logger.warning(f"High-risk step detected: {step.get('action')} - " f"{decision.reason}")
                     print(f"⚠️  High-risk step detected: {decision.reason}")
 
                 # 🔐 Validate command security
@@ -186,8 +210,15 @@ class AgentController:
                     CommandValidator.validate(step.get("command"))
                 except CommandSecurityError:
                     logger.error(f"Command security validation failed: {step.get('command')}")
+                    workflow_step.status = "failed"
+                    self.db.commit()
                     subtask_failed = True
                     break
+
+                # Mark step as running
+                workflow_step.status = "running"
+                workflow_step.started_at = datetime.utcnow()
+                self.db.commit()
 
                 logger.debug(f"Executing step: {step.get('tool')} - {step.get('action')}")
                 result = self.dispatcher.dispatch(step, metrics)
@@ -195,10 +226,18 @@ class AgentController:
 
                 if result:
                     db_result = ExecutionResult(
-                        step_id=db_step.id, stdout=result.stdout, stderr=result.stderr, return_code=result.return_code
+                        step_id=db_step.id,
+                        stdout=result.stdout,
+                        stderr=result.stderr,
+                        return_code=result.return_code,
                     )
 
                     self.db.add(db_result)
+                    self.db.commit()
+
+                    # Mark step as completed
+                    workflow_step.finished_at = datetime.utcnow()
+                    workflow_step.status = "completed"
                     self.db.commit()
 
                     # HIGH RISK CHECK
@@ -227,7 +266,9 @@ class AgentController:
                     # Normal failure handling
                     # 🔁 Handle failure if needed
                     if result.return_code != 0:
-                        logger.error(f"Step failed with return code {result.return_code}: {result.stderr}")
+                        logger.error(f"Step failed with return code {result.return_code}: " f"{result.stderr}")
+                        workflow_step.status = "failed"
+                        self.db.commit()
                         self.retry_engine.handle_failure(
                             db_step=db_step,
                             original_step=step,

@@ -99,3 +99,23 @@ class WorkflowSubtask(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     session = relationship("Session", back_populates="subtasks")
+
+
+class WorkflowStep(Base):
+    __tablename__ = "workflow_steps"
+
+    id = Column(Integer, primary_key=True)
+    session_id = Column(Integer, ForeignKey("sessions.id"), index=True)
+    subtask_id = Column(Integer, ForeignKey("workflow_subtasks.id"), index=True)
+    step_index = Column(Integer, nullable=False)
+    command = Column(Text, nullable=True)
+    status = Column(String, default="pending")  # pending | running | completed | failed
+    retry_count = Column(Integer, default=0)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    finished_at = Column(DateTime(timezone=True), nullable=True)
+    output_hash = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    session = relationship("Session")
+    subtask = relationship("WorkflowSubtask")
