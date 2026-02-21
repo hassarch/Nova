@@ -1,10 +1,12 @@
-# NOVA – Neural Orchestrated Virtual Assistant
+# NOVA
 
+**Local Autonomous DevOps AI Runtime**
+
+Installable, offline, policy-governed AI workflow engine.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-An autonomous DevOps AI agent that turns natural language instructions into structured, secure system actions.
+[![Version 0.1.3](https://img.shields.io/badge/version-0.1.3-green.svg)](CHANGELOG.md)
 
 ---
 
@@ -14,7 +16,6 @@ NOVA is a locally running AI-powered assistant that understands plain English in
 
 It is designed as an experiment in building a secure, modular, self-healing DevOps automation agent — fully offline and architecture-driven.
 
-Think of it as:
 **"Describe what you want built, and NOVA handles the execution safely."**
 
 ---
@@ -79,40 +80,30 @@ Database: Stores results, metrics & retry history
 
 ---
 
-## Quick Start
-
-### Installation
+## 🚀 Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/hassarch/nova-agent.git
-cd nova-agent
-
-# Install in development mode
-pip install -e ".[dev]"
-
-# Run migrations
-python -m alembic upgrade head
+git clone https://github.com/yourusername/nova
+cd nova
+pip install -e .
 ```
 
-### Basic Usage
+## ⚡ Quick Start
 
 ```bash
-# Execute a task
-nova run "create a hello world Python script"
-
-# Simulate execution (no changes made)
-nova run "create a hello world Python script" --simulate
-
-# Show plan only (skip policy checks)
-nova run "create a hello world Python script" --plan-only
-
-# View session history
-nova session
-
-# Resume a failed workflow
-nova resume <session_id>
+nova init
+nova doctor
+nova run "Create a FastAPI backend"
 ```
+
+## 🔒 Security Model
+
+- Command whitelist enforcement
+- No sudo execution
+- Git governance protection
+- Retry limits
+- Execution timeouts
+- Optional simulation mode
 
 ---
 
