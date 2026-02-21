@@ -33,6 +33,12 @@ CRITICAL: You MUST return ONLY valid JSON. Nothing else.
 ENVIRONMENT CONTEXT:
 {context_str}
 
+ALLOWED TOOLS (use ONLY these):
+- "terminal": Execute shell commands (e.g., npm install, python script.py)
+- "filesystem": Create, read, modify, or delete files
+- "git": Git operations (clone, commit, push, etc.)
+- "docker": Docker operations (build, run, etc.)
+
 Return JSON in EXACTLY this format:
 
 {{
@@ -61,6 +67,7 @@ RULES:
 - NO markdown
 - NO explanations
 - NO backticks
+- ONLY use tools from ALLOWED TOOLS list
 - Escape all quotes in content with backslash
 - Use ./ for relative paths
 - Break complex tasks into logical subtasks
@@ -75,6 +82,7 @@ RULES:
 - If git is already initialized, do NOT reinitialize it
 - Always consider git state before git operations
 - Preserve project structure integrity
+- For downloading files or making HTTP requests, use "terminal" with curl or wget commands
 
 User request: {user_prompt}
 """

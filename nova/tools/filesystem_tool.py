@@ -46,6 +46,15 @@ class FileSystemTool:
                     return ExecutionResultData(stdout="", stderr=f"File not found: {file_path}", return_code=1)
 
             # Create or write file
+            # Ensure parent directories exist
+            parent_dir = os.path.dirname(full_path)
+            if parent_dir and not os.path.exists(parent_dir):
+                os.makedirs(parent_dir, exist_ok=True)
+            elif parent_dir and os.path.isfile(parent_dir):
+                # Parent path exists but is a file, not a directory - remove it
+                os.remove(parent_dir)
+                os.makedirs(parent_dir, exist_ok=True)
+
             with open(full_path, "w") as f:
                 if content:
                     f.write(content)

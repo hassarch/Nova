@@ -8,9 +8,17 @@ from nova.execution.strategy import ExecutionStrategy
 class NativeExecutor(ExecutionStrategy):
     def execute(self, command: str) -> ExecutionResultData:
         try:
-            # Use shlex.split to safely parse command without shell=True
-            args = shlex.split(command)
-            process = subprocess.run(args, capture_output=True, text=True, timeout=30)
+            # Check if command contains shell operators
+            shell_operators = ["&&", "||", "|", ">", "<", ";", "$", "`", "(", ")"]
+            has_shell_operators = any(op in command for op in shell_operators)
+
+            if has_shell_operators:
+                # Use shell=True for commands with operators
+                process = subprocess.run(command, shell=True, capture_output=True, text=True, timeout=30)
+            else:
+                # Use shlex.split for simple commands
+                args = shlex.split(command)
+                process = subprocess.run(args, capture_output=True, text=True, timeout=30)
 
             return ExecutionResultData(stdout=process.stdout, stderr=process.stderr, return_code=process.returncode)
 
