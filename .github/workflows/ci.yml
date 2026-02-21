@@ -29,16 +29,16 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run Black (code formatting)
-        run: black --check app tests
+        run: black --check nova tests
 
       - name: Run isort (import sorting)
-        run: isort --check-only app tests
+        run: isort --check-only nova tests
 
       - name: Run Flake8 (linting)
-        run: flake8 app tests --max-line-length=127 --extend-ignore=E203,W503
+        run: flake8 nova tests --max-line-length=127 --extend-ignore=E203,W503
 
       - name: Run MyPy (type checking)
-        run: mypy app --ignore-missing-imports
+        run: mypy nova --ignore-missing-imports
 
   test:
     name: Unit Tests
@@ -62,7 +62,7 @@ jobs:
           pip install -e ".[dev]"
 
       - name: Run unit tests
-        run: pytest tests -m unit -v --cov=app --cov-report=xml --cov-report=term-missing
+        run: pytest tests -m unit -v --cov=nova --cov-report=xml --cov-report=term-missing
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
@@ -91,7 +91,7 @@ jobs:
           pip install bandit safety
 
       - name: Run Bandit (security linting)
-        run: bandit -r app -ll
+        run: bandit -r nova -ll
         continue-on-error: false
 
       - name: Check dependencies for vulnerabilities

@@ -1,6 +1,6 @@
 import pytest
 
-from app.agent.parser import PlanParser
+from nova.controller.parser import PlanParser
 
 
 @pytest.mark.unit

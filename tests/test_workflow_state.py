@@ -1,14 +1,15 @@
 """Tests for persistent workflow state engine"""
+import json
 import uuid
 
 import pytest
 
-from app.agent.controller import AgentController
-from app.database.base import Base
-from app.database.connection import SessionLocal, engine
-from app.database.models import ExecutionPlan, Prompt
-from app.database.models import Session as DBSession
-from app.database.models import WorkflowSubtask
+from nova.controller.controller import AgentController
+from nova.database.base import Base
+from nova.database.connection import SessionLocal, engine
+from nova.database.models import ExecutionPlan, Prompt
+from nova.database.models import Session as DBSession
+from nova.database.models import WorkflowSubtask
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -189,8 +190,6 @@ class TestWorkflowStateEngine:
 
     def test_execution_plan_loading(self, db):
         """Should load execution plan from DB"""
-        import json
-
         controller = AgentController(db)
 
         # Create test session and plan

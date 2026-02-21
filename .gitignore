@@ -41,6 +41,7 @@ MANIFEST
 .env.prod
 
 # IDE
+.kiro/
 .vscode/
 .idea/
 *.swp

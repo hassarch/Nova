@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "Your Name", email = "your.email@example.com"}
+    {name = "Hassan", email = "hassanrj245@gmail.com"}
 ]
 keywords = ["ai", "agent", "automation", "llm", "ollama"]
 classifiers = [
@@ -31,6 +31,8 @@ dependencies = [
     "alembic==1.12.1",
     "requests==2.31.0",
     "python-dotenv==1.0.0",
+    "pydantic>=2.0,<3.0",
+    "pyyaml==6.0.1",
 ]
 
 [project.optional-dependencies]
@@ -42,14 +44,15 @@ dev = [
     "isort==5.13.2",
     "mypy==1.7.1",
     "types-requests==2.31.0.10",
+    "types-pyyaml==6.0.12.12",
     "pre-commit==3.5.0",
 ]
 
 [project.scripts]
-nova = "app.main:main"
+nova = "nova.main:main"
 
 [tool.setuptools]
-packages = ["app"]
+packages = ["nova"]
 
 [tool.black]
 line-length = 127
