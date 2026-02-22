@@ -82,32 +82,168 @@ Database: Stores results, metrics & retry history
 
 ## 🚀 Installation
 
+### Prerequisites
+- Python 3.11+
+- PostgreSQL (for session persistence)
+- Ollama (for local LLM planning)
+- Docker (optional, for sandboxed execution)
+
+### Setup
+
 ```bash
+# Clone the repository
 git clone https://github.com/yourusername/nova
 cd nova
+
+# Install in development mode
 pip install -e .
+
+# Run database migrations
+python -m alembic upgrade head
+
+# Verify installation
+nova doctor
 ```
+
+### Configuration
+
+NOVA reads configuration from `~/.nova/config.yaml`:
+
+```yaml
+# Database
+db_host: localhost
+db_port: 5432
+db_name: nova_db
+
+# Ollama (local LLM)
+ollama_url: http://localhost:11434
+
+# Execution
+use_sandbox: false  # Set to true for Docker isolation
+max_retries: 3
+```
+
+For detailed configuration, see [CONFIG_SYSTEM.md](CONFIG_SYSTEM.md).
 
 ## ⚡ Quick Start
 
 ```bash
+# Initialize configuration
 nova init
+
+# Check environment
 nova doctor
-nova run "Create a FastAPI backend"
+
+# Run a simple task
+nova run "create a file named hello.txt with content hello world"
+
+# View session history
+nova session
+
+# Resume a failed workflow
+nova resume <session_id>
 ```
 
 ## 🔒 Security Model
 
-- Command whitelist enforcement
-- No sudo execution
-- Git governance protection
-- Retry limits
-- Execution timeouts
-- Optional simulation mode
+- **Command whitelist enforcement**: Blocks dangerous operations (rm -rf, sudo, etc.)
+- **No sudo execution**: Prevents privilege escalation
+- **Git governance protection**: Validates git operations
+- **Retry limits**: Prevents infinite retry loops (max 3 retries)
+- **Execution timeouts**: 30-second timeout per command
+- **Optional simulation mode**: Preview changes without execution
+- **Policy-driven decisions**: Risk-based operation limits
+- **Input validation**: Command security checks before execution
 
 ---
 
-## Execution Modes
+## 📋 Logging & Debugging
+
+NOVA creates session logs in `~/.nova/logs/`:
+
+```bash
+# View latest session log
+tail -f ~/.nova/logs/session_*.log
+
+# Session log format
+2026-02-21 11:50:08 | INFO | nova_session_20260221_115008 | NOVA session started
+2026-02-21 11:50:08 | INFO | nova_session_20260221_115008 | Executing prompt: create fast api backend
+2026-02-21 11:50:54 | INFO | nova_session_20260221_115008 | Task completed successfully
+```
+
+Logs include:
+- Session start/end timestamps
+- Execution prompts and plans
+- Step-by-step execution details
+- Error messages with full stack traces
+- Retry attempts and recovery strategies
+- Final metrics (reads, writes, retries, risk score)
+
+---
+
+## 💡 Common Use Cases
+
+### Create a Project Structure
+```bash
+nova run "create a python project with src/, tests/, and requirements.txt"
+```
+
+### Set Up a Backend
+```bash
+nova run "create a FastAPI backend with main.py, requirements.txt, and docker-compose.yml"
+```
+
+### Initialize Git Repository
+```bash
+nova run "initialize a git repository with .gitignore and initial commit"
+```
+
+### Install Dependencies
+```bash
+nova run "install dependencies from requirements.txt using pip"
+```
+
+### Run Tests
+```bash
+nova run "run pytest tests with coverage report"
+```
+
+---
+
+## 🧪 Testing
+
+NOVA includes a comprehensive test suite covering:
+- **Policy Engine**: Command safety validation
+- **Configuration**: Settings and defaults
+- **Doctor Command**: Environment diagnostics
+- **Resume Logic**: Workflow resumption
+- **Retry Limits**: Failure recovery
+- **Workflow State**: Step-level persistence
+
+Run tests:
+```bash
+# All tests
+pytest tests -v
+
+# With coverage
+pytest tests -v --cov=nova --cov-report=html
+
+# Specific test file
+pytest tests/test_policy.py -v
+```
+
+---
+
+## 📚 Documentation
+
+- [CHANGELOG.md](CHANGELOG.md) – Version history and changes
+- [STRUCTURE.md](STRUCTURE.md) – Project architecture
+- [CONFIG_SYSTEM.md](CONFIG_SYSTEM.md) – Configuration guide
+- [DEVELOPMENT.md](DEVELOPMENT.md) – Development setup
+- [TESTING.md](TESTING.md) – Testing guide
+- [LOGGING.md](LOGGING.md) – Logging system
+- [ERROR_HANDLING.md](ERROR_HANDLING.md) – Error handling
+- [STEP_LEVEL_PERSISTENCE.md](STEP_LEVEL_PERSISTENCE.md) – Resume workflow
 
 ### 🚀 Normal Execution
 ```bash
@@ -284,23 +420,30 @@ pytest tests -v --cov=nova --cov-report=html
 
 ## Version
 
-**v0.1.0** – Professional package structure with enhanced CI/CD
+**v0.1.3** – Execution fixes and security hardening
 
-Includes:
-- Structured planning
-- Security validation
-- Native + Docker execution
-- Self-healing retry loop
-- Persistent memory layer
+Latest improvements:
+- ✅ Shell operator support (`&&`, `||`, pipes, redirects)
+- ✅ Automatic parent directory creation for nested files
+- ✅ Tool validation in planner (prevents invalid tools like `curl`)
+- ✅ Session-based logging with dual output (console + file)
+- ✅ Crash-safe error boundary with professional error messages
+- ✅ Step-level persistence and resume workflow completion
+- ✅ Comprehensive test suite (54 tests covering core invariants)
+- ✅ Security hardening with Bandit scanning
+- ✅ Full CI/CD pipeline (Black, isort, Flake8, MyPy, Pytest)
+
+Previous versions included:
+- Structured planning with Ollama
+- Security validation and policy enforcement
+- Native + Docker execution strategies
+- Self-healing retry loop with LLM recovery
+- Persistent memory layer with PostgreSQL
 - Metrics tracking & risk scoring
 - Adaptive operation limits
 - Simulation mode with risk assessment
 - Plan-only mode
 - Diff preview for modifications
-- **NEW: Professional nova/ package structure**
-- **NEW: Enhanced CI/CD pipelines**
-- **NEW: Type checking with MyPy**
-- **NEW: Security scanning with Bandit**
 
 ---
 
