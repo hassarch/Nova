@@ -36,24 +36,24 @@ pre-commit-install:
 	pre-commit install
 
 lint:
-	flake8 app tests --max-line-length=127 --extend-ignore=E203,W503
+	flake8 nova tests --max-line-length=127 --extend-ignore=E203,W503
 
 format:
-	black app tests
-	isort app tests
+	black nova tests
+	isort nova tests
 
 type-check:
-	mypy app --ignore-missing-imports
+	mypy nova --ignore-missing-imports
 
 test:
 	pytest tests -m unit -v
 
 test-cov:
-	pytest tests -m unit -v --cov=app --cov-report=html --cov-report=term-missing
+	pytest tests -m unit -v --cov=nova --cov-report=html --cov-report=term-missing
 	@echo "Coverage report generated in htmlcov/index.html"
 
 security:
-	bandit -r app -ll
+	bandit -r nova -ll
 	safety check
 
 ci-check:

@@ -83,7 +83,7 @@ else
     echo -e "${RED}✗ $FAILED check(s) failed${NC}"
     echo ""
     echo "To fix formatting issues, run:"
-    echo "  black app tests"
-    echo "  isort app tests"
+    echo "  black nova tests"
+    echo "  isort nova tests"
     exit 1
 fi
